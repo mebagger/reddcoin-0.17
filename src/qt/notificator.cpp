@@ -1,12 +1,11 @@
-// Copyright (c) 2011-2013 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
+// Copyright (c) 2011-2018 The Bitcoin Core developers
+// Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "notificator.h"
+#include <qt/notificator.h>
 
 #include <QApplication>
 #include <QByteArray>
-#include <QIcon>
 #include <QImageWriter>
 #include <QMessageBox>
 #include <QMetaType>
@@ -24,7 +23,7 @@
 // #define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
 #ifdef Q_OS_MAC
 #include <ApplicationServices/ApplicationServices.h>
-#include "macnotificationhandler.h"
+#include <qt/macnotificationhandler.h>
 #endif
 
 
@@ -33,17 +32,17 @@
 const int FREEDESKTOP_NOTIFICATION_ICON_SIZE = 128;
 #endif
 
-Notificator::Notificator(const QString &programName, QSystemTrayIcon *trayicon, QWidget *parent) :
-    QObject(parent),
-    parent(parent),
-    programName(programName),
+Notificator::Notificator(const QString &_programName, QSystemTrayIcon *_trayIcon, QWidget *_parent) :
+    QObject(_parent),
+    parent(_parent),
+    programName(_programName),
     mode(None),
-    trayIcon(trayicon)
+    trayIcon(_trayIcon)
 #ifdef USE_DBUS
     ,interface(0)
 #endif
 {
-    if(trayicon && trayicon->supportsMessages())
+    if(_trayIcon && _trayIcon->supportsMessages())
     {
         mode = QSystemTray;
     }
@@ -77,7 +76,7 @@ class FreedesktopImage
 {
 public:
     FreedesktopImage() {}
-    FreedesktopImage(const QImage &img);
+    explicit FreedesktopImage(const QImage &img);
 
     static int metaType();
 
