@@ -50,10 +50,11 @@ struct Params {
     uint256 hashGenesisBlock;
     int nSubsidyHalvingInterval;
     /* Block hash that is excepted from BIP16 enforcement */
-    uint256 BIP16Exception;
+    //uint256 BIP16Exception;
+    int BIP16Height;
     /** Block height and hash at which BIP34 becomes active */
-    int BIP34Height;
-    uint256 BIP34Hash;
+    //int BIP34Height;
+    //uint256 BIP34Hash;
     /** Block height at which BIP65 becomes active */
     int BIP65Height;
     /** Block height at which BIP66 becomes active */
@@ -75,6 +76,25 @@ struct Params {
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
+
+    // reddcoin PoSV
+    int nEnforceBlockUpgradeMajority;
+    int nEnforceBlockUpgradeMajority_4;
+    int nEnforceBlockUpgradeMajority_5;
+    int nRejectBlockOutdatedMajority;
+    int nRejectBlockOutdatedMajority_4;
+    int nRejectBlockOutdatedMajority_5;
+    int nToCheckBlockUpgradeMajority;
+    int nToCheckBlockUpgradeMajority_4;
+    int nToCheckBlockUpgradeMajority_5;
+    int nMaxReorganizationDepth;
+    
+    uint256 ProofOfStakeLimit;
+    uint256 ProofOfStakeReset;
+    int nLastProofOfWorkHeight;
+    unsigned int nStakeMinAge;
+    unsigned int nStakeMaxAge;
+
 };
 } // namespace Consensus
 

@@ -12,13 +12,15 @@
 #include <tinyformat.h>
 #include <uint256.h>
 
+#include <utilmoneystr.h>
+
 #include <vector>
 
 /**
  * Maximum amount of time that a block timestamp is allowed to exceed the
  * current network-adjusted time before the block will be accepted.
  */
-static const int64_t MAX_FUTURE_BLOCK_TIME = 2 * 60 * 60;
+static const int64_t MAX_FUTURE_BLOCK_TIME = 2 * 60 * 60;  //PoSV ??
 
 /**
  * Timestamp window used as a grace period by code that compares external
@@ -182,6 +184,24 @@ public:
     //! height of the entry in the chain. The genesis block has height 0
     int nHeight;
 
+    // PoSV: block index flags
+    unsigned int nFlags;
+    enum
+    {
+        BLOCK_PROOF_OF_STAKE = (1 << 0), // is proof-of-stake block
+        BLOCK_STAKE_ENTROPY  = (1 << 1), // entropy bit for stake modifier
+        BLOCK_STAKE_MODIFIER = (1 << 2), // regenerated stake modifier
+    };
+
+    // PoSV fields
+    int64_t nMint;
+    int64_t nMoneySupply;
+    uint64_t nStakeModifier; // hash modifier for proof-of-stake
+    unsigned int nStakeModifierChecksum; // checksum of index; in-memeory only
+    unsigned int nStakeTime;
+    uint256 hashProof;
+    COutPoint prevoutStake;
+
     //! Which # file this block is stored in (blk?????.dat)
     int nFile;
 
@@ -240,6 +260,16 @@ public:
         nTime          = 0;
         nBits          = 0;
         nNonce         = 0;
+
+        // PoSV
+        nMint = 0;
+        nMoneySupply = 0;
+        nFlags = 0;
+        nStakeModifier = 0;
+        nStakeModifierChecksum = 0;
+        hashProof = uint256();
+        prevoutStake.SetNull();
+        nStakeTime = 0;
     }
 
     CBlockIndex()
@@ -256,6 +286,19 @@ public:
         nTime          = block.nTime;
         nBits          = block.nBits;
         nNonce         = block.nNonce;
+
+        // PoSV
+        if (block.IsProofOfStake())
+        {
+            SetProofOfStake();
+            prevoutStake.SetNull();
+            nStakeTime = 0;
+        }
+        else
+        {
+            prevoutStake.SetNull();
+            nStakeTime = 0;
+        }
     }
 
     CDiskBlockPos GetBlockPos() const {
@@ -286,6 +329,7 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.nFlags         = nFlags;
         return block;
     }
 
@@ -320,6 +364,61 @@ public:
         return pbegin[(pend - pbegin)/2];
     }
 
+    // PoSV
+    bool IsProofOfWork() const
+    {
+        return !(nFlags & BLOCK_PROOF_OF_STAKE);
+    }
+
+    bool IsProofOfStake() const
+    {
+        return (nFlags & BLOCK_PROOF_OF_STAKE);
+    }
+
+    void SetProofOfStake()
+    {
+        nFlags |= BLOCK_PROOF_OF_STAKE;
+    }
+
+    unsigned int GetStakeEntropyBit() const
+    {
+        return ((nFlags & BLOCK_STAKE_ENTROPY) >> 1);
+    }
+
+    bool SetStakeEntropyBit(unsigned int nEntropyBit)
+    {
+        if (nEntropyBit > 1)
+            return false;
+        nFlags |= (nEntropyBit? BLOCK_STAKE_ENTROPY : 0);
+        return true;
+    }
+
+    bool GeneratedStakeModifier() const
+    {
+        return (nFlags & BLOCK_STAKE_MODIFIER);
+    }
+
+    void SetStakeModifier(uint64_t nModifier, bool fGeneratedStakeModifier)
+    {
+        nStakeModifier = nModifier;
+        if (fGeneratedStakeModifier)
+            nFlags |= BLOCK_STAKE_MODIFIER;
+    }
+
+    std::string ToString() const
+    {
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, nTime=%d, nMint=%s, nMoneySupply=%s, nFlags=(%s)(%d)(%s), nStakeModifier=%016x, nStakeModifierChecksum=%08x, nStakeTime=%d, hashProof=%s, prevoutStake=(%s), merkle=%s, hashBlock=%s)",
+            pprev, nHeight, nTime,
+            FormatMoney(nMint), FormatMoney(nMoneySupply),
+            GeneratedStakeModifier() ? "MOD" : "-", GetStakeEntropyBit(), IsProofOfStake()? "PoSV" : "PoW",
+            nStakeModifier, nStakeModifierChecksum, nStakeTime,
+            hashProof.ToString(),
+            prevoutStake.ToString(),
+            hashMerkleRoot.ToString(),
+            GetBlockHash().ToString());
+    }
+
+   /**
     std::string ToString() const
     {
         return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, hashBlock=%s)",
@@ -327,6 +426,7 @@ public:
             hashMerkleRoot.ToString(),
             GetBlockHash().ToString());
     }
+    **/
 
     //! Check whether this block index entry is valid up to the passed validity level.
     bool IsValid(enum BlockStatus nUpTo = BLOCK_VALID_TRANSACTIONS) const
@@ -397,6 +497,25 @@ public:
             READWRITE(VARINT(nDataPos));
         if (nStatus & BLOCK_HAVE_UNDO)
             READWRITE(VARINT(nUndoPos));
+
+
+        // PoSV
+        READWRITE(nMint);
+        READWRITE(nMoneySupply);
+        READWRITE(nFlags);
+        READWRITE(nStakeModifier);
+        if (IsProofOfStake())
+        {
+            READWRITE(prevoutStake);
+            READWRITE(nStakeTime);
+            READWRITE(hashProof);
+        }
+        else if (ser_action.ForRead())
+        {
+            const_cast<CDiskBlockIndex*>(this)->prevoutStake.SetNull();
+            const_cast<CDiskBlockIndex*>(this)->nStakeTime = 0;
+            const_cast<CDiskBlockIndex*>(this)->hashProofOfStake = uint256();
+        }
 
         // block header
         READWRITE(this->nVersion);

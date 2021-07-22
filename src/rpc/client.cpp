@@ -68,6 +68,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listaccounts", 0, "minconf" },
     { "listaccounts", 1, "include_watchonly" },
     { "walletpassphrase", 1, "timeout" },
+    { "walletpassphrase", 2, "mintonly" },
     { "getblocktemplate", 0, "template_request" },
     { "listsinceblock", 1, "target_confirmations" },
     { "listsinceblock", 2, "include_watchonly" },
@@ -171,6 +172,17 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "rescanblockchain", 0, "start_height"},
     { "rescanblockchain", 1, "stop_height"},
     { "createwallet", 1, "disable_private_keys"},
+
+        // PoSV
+    { "reservebalance", 0, "bool" },
+    { "reservebalance",  1, "amount" },
+    { "getinterest", 0, "start_timestamp" },
+    { "getinterest", 1, "stop_timestamp" },
+	{ "getinflation", 0, "height" },
+	//{ "getinflation", 1, "" },
+	{ "getinflationmultiplier", 0, "height" },
+	//{ "getinflationmultiplier", 1, "" },
+
 };
 
 class CRPCConvertTable

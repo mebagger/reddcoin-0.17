@@ -12,6 +12,14 @@
 #include <serialize.h>
 #include <uint256.h>
 
+#include <version.h>
+
+// PoSV
+// nTime field added to CTransaction
+// vchBlockSig field added to CBlock
+static const int POW_TX_VERSION = 1;
+static const int POW_BLOCK_VERSION = 2;
+
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
@@ -160,6 +168,17 @@ public:
         return (nValue == -1);
     }
 
+    void SetEmpty()
+    {
+        nValue = 0;
+        scriptPubKey.clear();
+    }
+
+    bool IsEmpty() const
+    {
+        return (nValue == 0 && scriptPubKey.empty());
+    }
+
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nValue       == b.nValue &&
@@ -198,6 +217,17 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
     const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
     s >> tx.nVersion;
+    //PoSV
+    if (tx.nVersion > POW_TX_VERSION)
+    {
+            
+        s >> tx.nTime;
+    }
+    else
+    {
+        tx.nTime = 0;
+        s >> tx.nTime;
+    } 
     unsigned char flags = 0;
     tx.vin.clear();
     tx.vout.clear();
@@ -233,6 +263,17 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
     s << tx.nVersion;
+    //PoSV
+    if (tx.nVersion > POW_TX_VERSION)
+    {
+            
+        s << tx.nTime;
+    }
+    else
+    {
+        tx.nTime = 0;
+        s << tx.nTime;
+    } 
     unsigned char flags = 0;
     // Consistency check
     if (fAllowWitness) {
@@ -264,6 +305,9 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
 class CTransaction
 {
 public:
+    //PoSV ??
+    //static CFeeRate minTxFee;
+    //static CFeeRate minRelayTxFee;
     // Default transaction version.
     static const int32_t CURRENT_VERSION=2;
 
@@ -282,6 +326,7 @@ public:
     const std::vector<CTxOut> vout;
     const int32_t nVersion;
     const uint32_t nLockTime;
+    const uint32_t nTime; //PoSV
 
 private:
     /** Memory only. */
@@ -294,6 +339,7 @@ private:
 public:
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction();
+    //CTransaction(int64_t nTime); //PoSV ??
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
@@ -331,6 +377,14 @@ public:
     bool IsCoinBase() const
     {
         return (vin.size() == 1 && vin[0].prevout.IsNull());
+        //return (vin.size() == 1 && vin[0].prevout.IsNull() && vout.size() >= 1); //PoSV ?? peercoin made this change in 0.16.3
+    }
+
+    //PoSV
+    bool IsCoinStake() const
+    {
+        // peercoin: the coin stake transaction is marked with the first output empty
+        return (vin.size() > 0 && (!vin[0].prevout.IsNull()) && vout.size() >= 2 && vout[0].IsEmpty());
     }
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
@@ -363,8 +417,10 @@ struct CMutableTransaction
     std::vector<CTxOut> vout;
     int32_t nVersion;
     uint32_t nLockTime;
+    uint32_t nTime; //PoSV
 
     CMutableTransaction();
+    //CMutableTransaction(uint32_t nTime); //PoSV ?? 
     explicit CMutableTransaction(const CTransaction& tx);
 
     template <typename Stream>

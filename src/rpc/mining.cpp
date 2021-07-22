@@ -26,6 +26,9 @@
 #include <validationinterface.h>
 #include <warnings.h>
 
+#include <wallet/wallet.h>
+#include <kernel.h>
+
 #include <memory>
 #include <stdint.h>
 
@@ -103,7 +106,36 @@ static UniValue getnetworkhashps(const JSONRPCRequest& request)
     return GetNetworkHashPS(!request.params[0].isNull() ? request.params[0].get_int() : 120, !request.params[1].isNull() ? request.params[1].get_int() : -1);
 }
 
-UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, uint64_t nMaxTries, bool keepScript)
+// PoSV ??: get network Gh/s estimate
+UniValue getnetworkghps(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "getnetworkghps\n"
+            "Returns a recent Ghash/second network mining estimate.");
+
+    int64_t nTargetSpacingWorkMin = 30;
+    int64_t nTargetSpacingWork = nTargetSpacingWorkMin;
+    int64_t nInterval = 72;
+    CBlockIndex* pindex = chainActive.Genesis();
+    CBlockIndex* pindexPrevWork = chainActive.Genesis();
+    while (pindex)
+    {
+        // Exponential moving average of recent proof-of-work block spacing
+        if (pindex->IsProofOfWork())
+        {
+            int64_t nActualSpacingWork = pindex->GetBlockTime() - pindexPrevWork->GetBlockTime();
+            nTargetSpacingWork = ((nInterval - 1) * nTargetSpacingWork + nActualSpacingWork + nActualSpacingWork) / (nInterval + 1);
+            nTargetSpacingWork = std::max(nTargetSpacingWork, nTargetSpacingWorkMin);
+            pindexPrevWork = pindex;
+        }
+        pindex = chainActive.Next(pindex);
+    }
+    double dNetworkGhps = GetDifficulty() * 4.294967296 / nTargetSpacingWork;
+    return dNetworkGhps;
+}
+
+UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, uint64_t nMaxTries, bool keepScript, CWallet * const pwallet)
 {
     static const int nInnerLoopCount = 0x10000;
     int nHeightEnd = 0;
@@ -136,6 +168,12 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
         if (pblock->nNonce == nInnerLoopCount) {
             continue;
         }
+
+        // PoSV ??: sign block
+        // rfc6: we sign proof of work blocks only before 0.8 fork
+        if (!IsBTC16BIPsEnabled(pblock->GetBlockTime()) && !SignBlock(*pblock, *pwallet))
+            throw JSONRPCError(-100, "Unable to sign block, wallet locked?");
+
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
@@ -159,7 +197,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             "\nMine blocks immediately to a specified address (before the RPC call returns)\n"
             "\nArguments:\n"
             "1. nblocks      (numeric, required) How many blocks are generated immediately.\n"
-            "2. address      (string, required) The address to send the newly generated bitcoin to.\n"
+            "2. address      (string, required) The address to send the newly generated reddcoin to.\n"
             "3. maxtries     (numeric, optional) How many iterations to try (default = 1000000).\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
@@ -696,6 +734,11 @@ protected:
 
 static UniValue submitblock(const JSONRPCRequest& request)
 {
+    CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
     // We allow 2 arguments for compliance with BIP22. Argument 2 is ignored.
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2) {
         throw std::runtime_error(
@@ -736,6 +779,19 @@ static UniValue submitblock(const JSONRPCRequest& request)
             }
         }
     }
+
+    // PoSV ??: check block before attempting to sign it
+    CValidationState state;
+    if (!CheckBlock(block, state, Params().GetConsensus(), true,  true, false)) {
+        LogPrintf("SubmitBlock: %s\n", FormatStateMessage(state));
+        throw JSONRPCError(-100, "Block failed CheckBlock() function.");
+        }
+
+    // PoSV ??: sign block
+    // rfc6: sign proof of stake blocks only after 0.8 fork
+    if ((block.IsProofOfStake() || !IsBTC16BIPsEnabled(block.GetBlockTime())) && !SignBlock(block, *pwallet))
+        throw JSONRPCError(-100, "Unable to sign block, wallet locked?");
+
 
     {
         LOCK(cs_main);

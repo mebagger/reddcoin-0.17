@@ -195,7 +195,7 @@ void Shutdown()
     /// for example if the data directory was found to be locked.
     /// Be sure that anything that writes files or flushes caches only does this if the respective
     /// module was initialized.
-    RenameThread("bitcoin-shutoff");
+    RenameThread("reddcoin-shutoff");
     mempool.AddTransactionsUpdated(1);
 
     StopHTTPRPC();
@@ -356,6 +356,7 @@ void SetupServerArgs()
     // When adding new options to the categories, please keep and ensure alphabetical ordering.
     gArgs.AddArg("-?", "Print this help message and exit", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-version", "Print version and exit", false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-alerts", strprintf(_("Receive and display P2P network alerts (default: %u)", DEFAULT_ALERTS), true, OptionsCategory::OPTIONS);
     gArgs.AddArg("-alertnotify=<cmd>", "Execute command when a relevant alert is received or we see a really long fork (%s in cmd is replaced by message)", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-assumevalid=<hex>", strprintf("If this block is in the chain assume that it and its ancestors are valid and potentially skip their script verification (0 to verify all, default: %s, testnet: %s)", defaultChainParams->GetConsensus().defaultAssumeValid.GetHex(), testnetChainParams->GetConsensus().defaultAssumeValid.GetHex()), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blocksdir=<dir>", "Specify blocks directory (default: <datadir>/blocks)", false, OptionsCategory::OPTIONS);
@@ -527,10 +528,11 @@ void SetupServerArgs()
 
 std::string LicenseInfo()
 {
-    const std::string URL_SOURCE_CODE = "<https://github.com/bitcoin/bitcoin>";
-    const std::string URL_WEBSITE = "<https://bitcoincore.org>";
+    const std::string URL_SOURCE_CODE = "<https://github.com/reddcoin-project/reddcoin>";
+    const std::string URL_WEBSITE = "<https://www.reddcoin.com>";
 
-    return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2009, COPYRIGHT_YEAR) + " ") + "\n" +
+    return CopyrightHolders(strprintf(_("Copyright (C) %i-%i The Bitcoin Core Developers"), 2009, COPYRIGHT_YEAR) + " ") + "\n" +
+           strprintf(_("Copyright (C) %i-%i The Reddcoin Core Developers"), 2014, COPYRIGHT_YEAR) + " ") + "\n" +
            "\n" +
            strprintf(_("Please contribute if you find %s useful. "
                        "Visit %s for further information about the software."),
@@ -633,7 +635,7 @@ static void CleanupBlockRevFiles()
 static void ThreadImport(std::vector<fs::path> vImportFiles)
 {
     const CChainParams& chainparams = Params();
-    RenameThread("bitcoin-loadblk");
+    RenameThread("reddcoin-loadblk");
     ScheduleBatchPriority();
 
     {
@@ -706,7 +708,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
 }
 
 /** Sanity checks
- *  Ensure that Bitcoin is running in a usable environment with all
+ *  Ensure that Reddcoin is running in a usable environment with all
  *  necessary library support.
  */
 static bool InitSanityCheck(void)
@@ -1116,6 +1118,8 @@ bool AppInitParameterInteraction()
     fAcceptDatacarrier = gArgs.GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER);
     nMaxDatacarrierBytes = gArgs.GetArg("-datacarriersize", nMaxDatacarrierBytes);
 
+    fAlerts = gArgs.GetBoolArg("-alerts", DEFAULT_ALERTS);
+
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(gArgs.GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
 
@@ -1199,6 +1203,9 @@ bool AppInitSanityChecks()
     ECC_Start();
     globalVerifyHandle.reset(new ECCVerifyHandle());
 
+    // PoSV ??: init hash seed
+    reddcoinRandseed = GetRand(1 << 30);
+
     // Sanity check
     if (!InitSanityCheck())
         return InitError(strprintf(_("Initialization sanity check failed. %s is shutting down."), _(PACKAGE_NAME)));
@@ -1250,9 +1257,9 @@ bool AppInitMain()
     // Warn about relative -datadir path.
     if (gArgs.IsArgSet("-datadir") && !fs::path(gArgs.GetArg("-datadir", "")).is_absolute()) {
         LogPrintf("Warning: relative datadir option '%s' specified, which will be interpreted relative to the " /* Continued */
-                  "current working directory '%s'. This is fragile, because if bitcoin is started in the future "
+                  "current working directory '%s'. This is fragile, because if reddcoin is started in the future "
                   "from a different location, it will be unable to locate the current data files. There could "
-                  "also be data loss if bitcoin is started while in a temporary directory.\n",
+                  "also be data loss if reddcoin is started while in a temporary directory.\n",
             gArgs.GetArg("-datadir", ""), fs::current_path().string());
     }
 
@@ -1753,6 +1760,14 @@ bool AppInitMain()
     if (!connman.Start(scheduler, connOptions)) {
         return false;
     }
+
+// ********************************************************* Step 12.5: start staking //PoSV ??
+    #ifdef ENABLE_WALLET
+    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
+        auto pwalletMain = pwallet[0].get();
+            GenerateReddcoins(GetBoolArg("-staking", true), pwalletMain, GetArg("-genproclimit", 1));
+    }
+    #endif
 
     // ********************************************************* Step 13: finished
 

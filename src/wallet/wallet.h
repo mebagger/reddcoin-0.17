@@ -21,6 +21,8 @@
 #include <wallet/coinselection.h>
 #include <wallet/walletdb.h>
 #include <wallet/walletutil.h>
+#include <kernel.h>
+#include <txdb.h>
 
 #include <algorithm>
 #include <atomic>
@@ -46,6 +48,9 @@ bool HasWallets();
 std::vector<std::shared_ptr<CWallet>> GetWallets();
 std::shared_ptr<CWallet> GetWallet(const std::string& name);
 
+
+//PoSV: 
+extern bool fWalletUnlockStakingOnly;
 //! Default for -keypool
 static const unsigned int DEFAULT_KEYPOOL_SIZE = 1000;
 //! -paytxfee default
@@ -283,6 +288,7 @@ public:
 
     const uint256& GetHash() const { return tx->GetHash(); }
     bool IsCoinBase() const { return tx->IsCoinBase(); }
+    bool IsCoinStake() const { return tx->IsCoinStake(); }
 };
 
 //Get the marginal bytes of spending the specified output
@@ -850,7 +856,7 @@ public:
     /**
      * populate vCoins with vector of available COutputs.
      */
-    void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlySafe=true, const CCoinControl *coinControl = nullptr, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0, const int nMinDepth = 0, const int nMaxDepth = 9999999) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlySafe=true, const CCoinControl *coinControl = nullptr, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0, const int nMinDepth = 0, const int nMaxDepth = 9999999, uint32_t nSpendTime = 0) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /**
      * Return list of available coins and locked coins grouped by non-change output address.
@@ -947,6 +953,7 @@ public:
     bool AccountMove(std::string strFrom, std::string strTo, CAmount nAmount, std::string strComment = "") EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     bool GetLabelDestination(CTxDestination &dest, const std::string& label, bool bForceNew = false);
 
+    void WalletUpdateSpent(const CTransactionRef& tx);
     void MarkDirty();
     bool AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose=true);
     void LoadToWallet(const CWalletTx& wtxIn);
@@ -961,6 +968,12 @@ public:
     // ResendWalletTransactionsBefore may only be called if fBroadcastTransactions!
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime, CConnman* connman);
     CAmount GetBalance(const isminefilter& filter=ISMINE_SPENDABLE, const int min_depth=0) const;
+    // PoSV
+    CAmount GetStake() const;
+    bool GetStakeWeight(uint64_t& nAverageWeight, uint64_t& nTotalWeight);
+    bool CreateCoinStake(unsigned int nBits, int64_t nSearchInterval, CAmount& nFees, CMutableTransaction& txNew, CKey& key, int nVer);
+    bool SignBlock(CBlock *pblock, CAmount& nFees);
+    CAmount GetStakedWatchOnlyBalance() const;
     CAmount GetUnconfirmedBalance() const;
     CAmount GetImmatureBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;
