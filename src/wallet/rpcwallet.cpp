@@ -27,10 +27,11 @@
 #include <utilmoneystr.h>
 #include <wallet/coincontrol.h>
 #include <wallet/feebumper.h>
-#include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
 #include <wallet/walletutil.h>
+
+#include <init.h>  // For StartShutdown
 
 #include <stdint.h>
 
@@ -39,6 +40,9 @@
 #include <miner.h>
 
 #include <functional>
+#include <boost/lexical_cast.hpp>
+
+
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
@@ -72,7 +76,7 @@ std::string HelpRequiringPassphrase(CWallet * const pwallet)
         : "";
 }
 
-bool EnsureWalletIsAvailable(CWallet * const pwallet, bool avoidException)
+bool EnsureWalletIsAvailable(const CWallet * const pwallet, bool avoidException)
 {
     if (pwallet) return true;
     if (avoidException) return false;
@@ -84,7 +88,7 @@ bool EnsureWalletIsAvailable(CWallet * const pwallet, bool avoidException)
         "Wallet file not specified (must request wallet RPC through /wallet/<filename> uri-path).");
 }
 
-void EnsureWalletIsUnlocked(CWallet * const pwallet)
+void EnsureWalletIsUnlocked(const CWallet * const pwallet)
 {
     if (pwallet->IsLocked()) {
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
@@ -2654,6 +2658,9 @@ static UniValue walletpassphrase(const JSONRPCRequest& request)
     else
         fWalletUnlockStakingOnly = false;
 
+    UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("unlocked_staking_only", fWalletUnlockStakingOnly));
+
     return NullUniValue;
 }
 
@@ -2845,45 +2852,6 @@ UniValue reservebalance(const JSONRPCRequest& request)
     result.pushKV("reserve", (nReserveBalance > 0));
     result.pushKV("amount", ValueFromAmount(nReserveBalance));
     return result;
-}
-
-// PoSV: interest received
-Value getinterest(const Array& params, bool fHelp)
-{
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
-
-    if (fHelp || params.size() > 2)
-        throw runtime_error(
-            "getinterest [start] [end]\n"
-            "Both [start] and [end] are inclusive and in the form of UNIX timestamps.");
-
-    unsigned int nTimeStart = 0;
-    unsigned int nTimeEnd = -1;
-    if (params.size() >= 1)
-        nTimeStart = (unsigned int)(params[0].get_int());
-    if (params.size() == 2)
-        nTimeEnd = (unsigned int)(params[1].get_int());
-
-    isminefilter filter = ISMINE_SPENDABLE;
-
-    CAmount nInterest = 0;
-    for (map<uint256, CWalletTx>::iterator it = pwallet->mapWallet.begin(); it != pwallet->mapWallet.end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
-        if (!wtx.IsCoinStake() || wtx.nTime < nTimeStart || wtx.nTime > nTimeEnd)
-            continue;
-
-        CAmount nDebit = wtx.GetDebit(filter);
-        CAmount nCredit = wtx.GetCredit(filter);
-
-        if (nDebit <= 0 || nCredit <= 0 || nDebit >= nCredit)
-            continue;
-        else
-            nInterest += nCredit - nDebit;
-    }
-
-    return  ValueFromAmount(nInterest);
 }
 
 static UniValue lockunspent(const JSONRPCRequest& request)
@@ -3158,7 +3126,7 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     }
     if (pwallet->IsCrypted()) {
         obj.pushKV("unlocked_until", pwallet->nRelockTime);
-        obj.push_back(Pair("unlocked_staking_only", fWalletUnlockMintOnly));
+        obj.push_back(Pair("unlocked_staking_only", fWalletUnlockStakingOnly));
     }
     obj.pushKV("paytxfee", ValueFromAmount(pwallet->m_pay_tx_fee.GetFeePerK()));
     if (!seed_id.IsNull()) {
@@ -4851,6 +4819,120 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     result.pushKV("fee", ValueFromAmount(fee));
     result.pushKV("changepos", change_position);
     return result;
+}
+
+// PoSV: interest received
+static UniValue getinterest(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (request.fHelp || request.params.size() > 2)
+        throw std::runtime_error(
+            "getinterest [start] [end]\n"
+            "Both [start] and [end] are inclusive and in the form of UNIX timestamps.");
+
+    unsigned int nTimeStart = 0;
+    unsigned int nTimeEnd = -1;
+    if (request.params.size() >= 1)
+        nTimeStart = (unsigned int)(request.params[0].get_int());
+    if (request.params.size() == 2)
+        nTimeEnd = (unsigned int)(request.params[1].get_int());
+
+    isminefilter filter = ISMINE_SPENDABLE;
+
+    CAmount nInterest = 0;
+    for (const std::pair<const uint256, CWalletTx>& it : pwallet->mapWallet) {
+        const CWalletTx& wtx = it.second;
+        if (!wtx.IsCoinStake() || wtx.tx->nTime < nTimeStart || wtx.tx->nTime > nTimeEnd)
+            continue;
+
+        CAmount nDebit = wtx.GetDebit(filter);
+        CAmount nCredit = wtx.GetCredit(filter);
+
+        if (nDebit <= 0 || nCredit <= 0 || nDebit >= nCredit)
+            continue;
+        else
+            nInterest += nCredit - nDebit;
+    }
+
+    return  ValueFromAmount(nInterest);
+}
+
+static UniValue getinflation(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() > 1)
+        throw std::runtime_error(
+            "getinflation\n"
+            "\nReturns details on the current inflation.\n"
+			"1. index          (integer, optional, default=current block tip) The block number\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"height\" : n,           (numeric) block height when transaction entered pool\n"
+            "  \"inflation\": xxxxx      (numeric) Current inflation\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getinflation", "")
+            + HelpExampleRpc("getinflation", "")
+        );
+
+    int nHeight;
+
+    if (request.params.size() > 0) {
+    	nHeight = request.params[0].get_int();
+    } else {
+    	nHeight = chainActive.Tip()->nHeight;
+    }
+
+	if (nHeight < 0 || nHeight > chainActive.Tip()->nHeight)
+		throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+
+	CBlockIndex* pindex = chainActive[nHeight];
+
+	UniValue ret(UniValue::VOBJ);
+	ret.pushKV("height", pindex->nHeight);
+	ret.pushKV("inflation", (double) GetInflation(pindex));
+
+	return ret;
+}
+
+static UniValue getinflationmultiplier(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() > 1)
+        throw std::runtime_error(
+            "getinflationmultiplier\n"
+            "\nReturns details on the current inflationmultiplier.\n"
+			"1. index          (integer, optional, default=current block tip) The block number\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"height\" : n,           (numeric) block height when transaction entered pool\n"
+            "  \"inflation\": xxxxx      (numeric) Current inflation\n"
+        	"  \"multiplier\": xxxxx      (numeric) Current inflation multiplier\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getinflationmultiplier", "")
+            + HelpExampleRpc("getinflationmultiplier", "")
+        );
+
+    int nHeight;
+
+    if (request.params.size() > 0) {
+    	nHeight = request.params[0].get_int();
+    } else {
+    	nHeight = chainActive.Tip()->nHeight;
+    }
+
+	if (nHeight < 0 || nHeight > chainActive.Tip()->nHeight)
+		throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+
+	CBlockIndex* pindex = chainActive[nHeight];
+
+	UniValue ret(UniValue::VOBJ);
+	ret.pushKV("height", pindex->nHeight);
+	ret.pushKV("inflation", (double) GetInflation(pindex));
+	ret.pushKV("multiplier", (double) GetInflationAdjustment(pindex));
+
+	return ret;
 }
 
 extern UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp

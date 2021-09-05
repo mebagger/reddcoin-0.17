@@ -271,9 +271,9 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     }
     else
     {
-        tx.nTime = 0;
+        *const_cast<uint32_t*>(&tx.nTime) = 0;
         s << tx.nTime;
-    } 
+    }
     unsigned char flags = 0;
     // Consistency check
     if (fAllowWitness) {
@@ -306,8 +306,6 @@ class CTransaction
 {
 public:
     //PoSV ??
-    //static CFeeRate minTxFee;
-    //static CFeeRate minRelayTxFee;
     // Default transaction version.
     static const int32_t CURRENT_VERSION=2;
 
@@ -325,8 +323,9 @@ public:
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
     const int32_t nVersion;
-    const uint32_t nLockTime;
     const uint32_t nTime; //PoSV
+    const uint32_t nLockTime;
+    
 
 private:
     /** Memory only. */
@@ -339,7 +338,7 @@ private:
 public:
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction();
-    //CTransaction(int64_t nTime); //PoSV ??
+    CTransaction(int64_t nTime); //PoSV ??
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
@@ -383,7 +382,7 @@ public:
     //PoSV
     bool IsCoinStake() const
     {
-        // peercoin: the coin stake transaction is marked with the first output empty
+        // PoSV: the coin stake transaction is marked with the first output empty
         return (vin.size() > 0 && (!vin[0].prevout.IsNull()) && vout.size() >= 2 && vout[0].IsEmpty());
     }
 
@@ -416,11 +415,12 @@ struct CMutableTransaction
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     int32_t nVersion;
-    uint32_t nLockTime;
     uint32_t nTime; //PoSV
+    uint32_t nLockTime;
+    
 
     CMutableTransaction();
-    //CMutableTransaction(uint32_t nTime); //PoSV ?? 
+    CMutableTransaction(uint32_t nTime); //PoSV ?? 
     explicit CMutableTransaction(const CTransaction& tx);
 
     template <typename Stream>

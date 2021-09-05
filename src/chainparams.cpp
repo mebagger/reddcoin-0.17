@@ -16,7 +16,7 @@
 
 static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
-    CMutableTransaction txNew;
+    CMutableTransaction txNew(nTime);
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
@@ -32,6 +32,13 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
+
+    printf("CreateGenesisBlock () Start\n");
+    printf("genesis.nTime = %u \n", genesis.nTime);
+    printf("genesis.nNonce = %u \n", genesis.nNonce); 
+    printf("genesis.GetHash = %s \n", genesis.GetHash().ToString().c_str());
+    printf("genesis.hashMerkleRoot = %s \n", genesis.hashMerkleRoot.ToString().c_str());
+    printf("CreateGenesisBlock () End\n\n");
     return genesis;
 }
 
@@ -111,7 +118,7 @@ public:
         consensus.defaultAssumeValid = uint256S("0x647a8db7d4a39445df5a08ecd2e671ed770c9a0cc4778d63472130aa4fde152a"); //"height" : 3882240
 
         //RDD
-        vAlertPubKey = ParseHex("0437b4b0f5d356f205c17ffff6c46dc9ec4680ffb7f8a9a4e6eebcebd5f340d01df00ef304faea7779d97d8f1addbe1e87308ea237aae3ead96e0a736c7e9477a1");
+        //vAlertPubKey = ParseHex("0437b4b0f5d356f205c17ffff6c46dc9ec4680ffb7f8a9a4e6eebcebd5f340d01df00ef304faea7779d97d8f1addbe1e87308ea237aae3ead96e0a736c7e9477a1");
         // bnProofOfWorkLimit = CBigNum(~uint256(0) >> 20); // powLimit
         // nSubsidyHalvingInterval = 210000;   // consensus.nSubsidyHalvingInterval
         consensus.nMaxReorganizationDepth = 200;
@@ -124,7 +131,7 @@ public:
         consensus.nEnforceBlockUpgradeMajority_5 = 9000;
         consensus.nRejectBlockOutdatedMajority_5 = 9000;
         consensus.nToCheckBlockUpgradeMajority_5 = 10000;
-        nMinerThreads = 0;
+        //nMinerThreads = 0;
         //nTargetTimespan = 24 * 60 * 60; // 24 hours  // nPowTargetTimespan
         //nTargetSpacing = 60; // 1 minute  // nPowTargetSpacing
         //nMaxTipAge = 8 * 60 * 60;  // DEFAULT_MAX_TIP_AGE in validation.h
@@ -156,6 +163,8 @@ public:
 
         genesis = CreateGenesisBlock(1390280400, 222583475, 0x1e0ffff0, 1, 10000 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
+        printf("hashGenesisBlock: %s \n", consensus.hashGenesisBlock.ToString().c_str()  );
+        printf("genesis: %s \n", genesis.ToString().c_str() );
         assert(consensus.hashGenesisBlock == uint256S("0xb868e0d95a3c3c0e0dadc67ee587aaf9dc8acbf99e3b4b3110fad4eb74c1decc"));
         assert(genesis.hashMerkleRoot == uint256S("0xb502bc1dc42b07092b9187e92f70e32f9a53247feae16d821bebffa916af79ff"));
 
@@ -352,7 +361,7 @@ public:
         consensus.defaultAssumeValid = uint256S("0x0"); //1354312
 
         //RDD PoSV
-        vAlertPubKey = ParseHex("048b75ab041ee9965f6f57ee299395c02daf5105f208fc49e908804aad3ace5a77c7f87b3aae74d6698124f20c3d1bea31c9fcdd350c9c61c0113fd988ecfb5c09");
+        //vAlertPubKey = ParseHex("048b75ab041ee9965f6f57ee299395c02daf5105f208fc49e908804aad3ace5a77c7f87b3aae74d6698124f20c3d1bea31c9fcdd350c9c61c0113fd988ecfb5c09");
         // bnProofOfWorkLimit = CBigNum(~uint256(0) >> 20); // powLimit
         // nSubsidyHalvingInterval = 210000;   // consensus.nSubsidyHalvingInterval
         consensus.nMaxReorganizationDepth = 200;
@@ -365,7 +374,7 @@ public:
         consensus.nEnforceBlockUpgradeMajority_5 = 510;
         consensus.nRejectBlockOutdatedMajority_5 = 750;
         consensus.nToCheckBlockUpgradeMajority_5 = 1000;
-        nMinerThreads = 0;
+        //nMinerThreads = 0;
         //nTargetTimespan = 24 * 60 * 60; // 24 hours  // nPowTargetTimespan
         //nTargetSpacing = 60; // 1 minute  // nPowTargetSpacing
         //nMaxTipAge = 0x7fffffff;;  // DEFAULT_MAX_TIP_AGE in validation.h
@@ -538,7 +547,7 @@ public:
         consensus.defaultAssumeValid = uint256S("0x00");
 
         //RDD PoSV
-        vAlertPubKey = ParseHex("0437b4b0f5d356f205c17ffff6c46dc9ec4680ffb7f8a9a4e6eebcebd5f340d01df00ef304faea7779d97d8f1addbe1e87308ea237aae3ead96e0a736c7e9477a1");
+        //vAlertPubKey = ParseHex("0437b4b0f5d356f205c17ffff6c46dc9ec4680ffb7f8a9a4e6eebcebd5f340d01df00ef304faea7779d97d8f1addbe1e87308ea237aae3ead96e0a736c7e9477a1");
         // bnProofOfWorkLimit = CBigNum(~uint256(0) >> 20); // powLimit
         // nSubsidyHalvingInterval = 210000;   // consensus.nSubsidyHalvingInterval
         consensus.nMaxReorganizationDepth = 200;
@@ -551,7 +560,7 @@ public:
         consensus.nEnforceBlockUpgradeMajority_5 = 510;
         consensus.nRejectBlockOutdatedMajority_5 = 750;
         consensus.nToCheckBlockUpgradeMajority_5 = 1000;
-        nMinerThreads = 1;
+        //nMinerThreads = 1;
         //nTargetTimespan = 24 * 60 * 60; // 24 hours  // nPowTargetTimespan
         //nTargetSpacing = 60; // 1 minute  // nPowTargetSpacing
         //nMaxTipAge = 8 * 60 * 60;  // DEFAULT_MAX_TIP_AGE in validation.h

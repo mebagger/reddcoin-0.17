@@ -6,7 +6,7 @@
 
 #include <rpc/server.h>
 #include <wallet/db.h>
-#include <wallet/rpcwallet.h>
+
 
 WalletTestingSetup::WalletTestingSetup(const std::string& chainName):
     TestingSetup(chainName), m_wallet(WalletLocation(), WalletDatabase::CreateMock())

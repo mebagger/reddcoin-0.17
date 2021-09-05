@@ -89,11 +89,11 @@ double GetPoSVKernelPS()
 {
     const CChainParams& chainparams = Params();
     const CBlockIndex* pindexBest = chainActive.Tip();
-    if (pindexBest == NULL || pindexBest->nHeight <= chainparams.LastProofOfWorkHeight || pindexBest->IsProofOfWork())
+    if (pindexBest == NULL || pindexBest->nHeight <= chainparams.GetConsensus().nLastProofOfWorkHeight || pindexBest->IsProofOfWork())
         return 0;
 
     double dStakeKernelsTriedAvg = GetDifficulty(pindexBest) * 4294967296.0; // 2^32
-    return dStakeKernelsTriedAvg / chainparams.nPowTargetSpacing;
+    return dStakeKernelsTriedAvg / chainparams.GetConsensus().nPowTargetSpacing;
 }
 
 UniValue blockheaderToJSON(const CBlockIndex* blockindex)
@@ -113,7 +113,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.pushKV("time", (int64_t)blockindex->nTime);
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("nonce", (uint64_t)blockindex->nNonce);
-    result.pushKV("bits", HexBits(blockindex->nBits)));
+    result.pushKV("bits", strprintf("%08x", blockindex->nBits));
     result.pushKV("difficulty", GetDifficulty(blockindex));
     result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
@@ -1147,7 +1147,7 @@ static UniValue SoftForkMajorityDesc(int version, CBlockIndex* pindex, const Con
     switch(version)
     {
         case 2:
-            activated = pindex->nHeight >= consensusParams.BIP34Height;
+            activated = pindex->nHeight >= consensusParams.BIP66Height; //PoSV: consensusParams.BIP34Height;
             break;
         case 3:
             activated = pindex->nHeight >= consensusParams.BIP66Height;
@@ -1581,83 +1581,6 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
 
     return NullUniValue;
 }
-
-static UniValue getinflation(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() > 1)
-        throw std::runtime_error(
-            "getinflation\n"
-            "\nReturns details on the current inflation.\n"
-			"1. index          (integer, optional, default=current block tip) The block number\n"
-            "\nResult:\n"
-            "{\n"
-            "  \"height\" : n,           (numeric) block height when transaction entered pool\n"
-            "  \"inflation\": xxxxx      (numeric) Current inflation\n"
-            "}\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getinflation", "")
-            + HelpExampleRpc("getinflation", "")
-        );
-
-    int nHeight;
-
-    if (request.params.size() > 0) {
-    	nHeight = request.params[0].get_int();
-    } else {
-    	nHeight = chainActive->nHeight;
-    }
-
-	if (nHeight < 0 || nHeight > chainActive->nHeight)
-		throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
-
-	CBlockIndex* pindex = chainActive[nHeight];
-
-	UniValue ret(UniValue::VOBJ);
-	ret.pushKV("height", pindex->nHeight);
-	ret.pushKV("inflation", (double) GetInflation(pindex));
-
-	return ret;
-}
-
-static UniValue getinflationmultiplier(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() > 1)
-        throw std::runtime_error(
-            "getinflationmultiplier\n"
-            "\nReturns details on the current inflationmultiplier.\n"
-			"1. index          (integer, optional, default=current block tip) The block number\n"
-            "\nResult:\n"
-            "{\n"
-            "  \"height\" : n,           (numeric) block height when transaction entered pool\n"
-            "  \"inflation\": xxxxx      (numeric) Current inflation\n"
-        	"  \"multiplier\": xxxxx      (numeric) Current inflation multiplier\n"
-            "}\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getinflationmultiplier", "")
-            + HelpExampleRpc("getinflationmultiplier", "")
-        );
-
-    int nHeight;
-
-    if (request.params.size() > 0) {
-    	nHeight = request.params[0].get_int();
-    } else {
-    	nHeight = chainActive->nHeight;
-    }
-
-	if (nHeight < 0 || nHeight > chainActive->nHeight)
-		throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
-
-	CBlockIndex* pindex = chainActive[nHeight];
-
-	UniValue ret(UniValue::VOBJ);
-	ret.pushKV("height", pindex->nHeight);
-	ret.pushKV("inflation", (double) GetInflation(pindex));
-	ret.pushKV("multiplier", (double) GetInflationAdjustment(pindex));
-
-	return ret;
-}
-
 
 static UniValue getchaintxstats(const JSONRPCRequest& request)
 {

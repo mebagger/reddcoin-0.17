@@ -8,6 +8,7 @@
 #include <string>
 
 class CRPCTable;
+class CTransaction;
 class CWallet;
 class JSONRPCRequest;
 class UniValue;
@@ -25,8 +26,8 @@ void RegisterWalletRPCCommands(CRPCTable &t);
 std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& request);
 
 std::string HelpRequiringPassphrase(CWallet *);
-void EnsureWalletIsUnlocked(CWallet *);
-bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
+void EnsureWalletIsUnlocked(const CWallet*);
+bool EnsureWalletIsAvailable(const CWallet*, bool avoidException);
 
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);

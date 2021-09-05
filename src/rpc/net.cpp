@@ -21,7 +21,6 @@
 #include <version.h>
 #include <warnings.h>
 
-#include <alert.h>
 #include <base58.h>
 
 #include <univalue.h>
@@ -625,68 +624,6 @@ static UniValue setnetworkactive(const JSONRPCRequest& request)
     g_connman->SetNetworkActive(request.params[0].get_bool());
 
     return g_connman->GetNetworkActive();
-}
-
-// PoSV ??: send alert.  
-UniValue sendalert(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() < 6)
-        throw std::runtime_error(
-            "sendalert <message> <privatekey> <minver> <maxver> <priority> <id> [cancelupto]\n"
-            "<message> is the alert text message\n"
-            "<privatekey> is hex string of alert master private key\n"
-            "<minver> is the minimum applicable internal client version\n"
-            "<maxver> is the maximum applicable internal client version\n"
-            "<priority> is integer priority number\n"
-            "<id> is the alert id\n"
-            "[cancelupto] cancels all alert id's up to this number\n"
-            "Returns true or false.");
-
-    CAlert alert;
-    CKey key;
-
-    alert.strStatusBar = request.params[0].get_str();
-    alert.nMinVer = request.params[2].get_int();
-    alert.nMaxVer = request.params[3].get_int();
-    alert.nPriority = request.params[4].get_int();
-    alert.nID = request.params[5].get_int();
-    if (request.params.size() > 6)
-        alert.nCancel = request.params[6].get_int();
-    alert.nVersion = PROTOCOL_VERSION;
-    alert.nRelayUntil = GetAdjustedTime() + 365*24*60*60;
-    alert.nExpiration = GetAdjustedTime() + 365*24*60*60;
-
-    CDataStream sMsg(SER_NETWORK, PROTOCOL_VERSION);
-    sMsg << (CUnsignedAlert)alert;
-    alert.vchMsg = std::vector<unsigned char>(sMsg.begin(), sMsg.end());
-    
-    // read & check key
-    CBitcoinSecret vchSecret;
-    if (!vchSecret.SetString(request.params[1].get_str()))
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key encoding");
-    key = vchSecret.GetKey();
-    if (!key.IsValid()) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Private key outside allowed range");
-    CPubKey pubkey = key.GetPubKey();
-    assert(key.VerifyPubKey(pubkey));
-
-    if (!key.Sign(Hash(alert.vchMsg.begin(), alert.vchMsg.end()), alert.vchSig))
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unable to sign alert, check private key?");
-    if (!alert.ProcessAlert(Params().AlertKey()))
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Failed to process alert.");
-    // Relay alert
-    g_connman->ForEachNode([&alert](CNode* pnode) {
-        alert.RelayTo(pnode);
-    });
-    UniValue result(UniValue::VOBJ);
-    result.push_back(Pair("strStatusBar", alert.strStatusBar));
-    result.push_back(Pair("nVersion", alert.nVersion));
-    result.push_back(Pair("nMinVer", alert.nMinVer));
-    result.push_back(Pair("nMaxVer", alert.nMaxVer));
-    result.push_back(Pair("nPriority", alert.nPriority));
-    result.push_back(Pair("nID", alert.nID));
-    if (alert.nCancel > 0)
-        result.push_back(Pair("nCancel", alert.nCancel));
-    return result;
 }
 
 

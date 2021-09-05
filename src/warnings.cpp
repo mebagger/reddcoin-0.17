@@ -10,6 +10,7 @@
 
 CCriticalSection cs_warnings;
 std::string strMiscWarning GUARDED_BY(cs_warnings);
+std::string strMintWarning GUARDED_BY(cs_warnings);
 bool fLargeWorkForkFound GUARDED_BY(cs_warnings) = false;
 bool fLargeWorkInvalidChainFound GUARDED_BY(cs_warnings) = false;
 
@@ -48,6 +49,13 @@ std::string GetWarnings(const std::string& strFor)
     if (!CLIENT_VERSION_IS_RELEASE) {
         strStatusBar = "This is a pre-release test build - use at your own risk - do not use for mining or merchant applications";
         strGUI = _("This is a pre-release test build - use at your own risk - do not use for mining or merchant applications");
+    }
+
+    // PoSV: wallet lock warning for minting
+    if (strMintWarning != "")
+    {
+        strStatusBar = strMintWarning;
+        strGUI += (strGUI.empty() ? "" : uiAlertSeperator) + _(strMintWarning.c_str());
     }
 
     // Misc warnings like out of disk space and clock is wrong

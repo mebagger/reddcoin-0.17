@@ -10,10 +10,10 @@
 #include <serialize.h>
 #include <uint256.h>
 
-#include <crypto/scrypt.h>
-#include <timedata.h>
-#include <util.h>
-#include <utilstrencodings.h>
+//#include <crypto/scrypt.h>
+//#include <timedata.h>
+//#include <util.h>
+//#include <utilstrencodings.h>
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -40,6 +40,11 @@ public:
     uint32_t nBits;
     uint32_t nNonce;
 
+    // PoSV: A copy from CBlockIndex.nFlags from other clients. We need this information because we are using headers-first syncronization.
+    int32_t nFlags;
+    // PoSV: Used in CheckProofOfStake().
+    static const int32_t NORMAL_SERIALIZE_SIZE=80;
+
     CBlockHeader()
     {
         SetNull();
@@ -55,6 +60,10 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+
+        // PoSV: do not serialize nFlags when computing hash
+        if (!(s.GetType() & SER_GETHASH) && s.GetType() & SER_POSMARKER)
+            READWRITE(nFlags);
     }
 
     void SetNull()
@@ -65,6 +74,7 @@ public:
         nTime = 0;
         nBits = 0;
         nNonce = 0;
+        nFlags = 0;
     }
 
     bool IsNull() const
@@ -74,7 +84,7 @@ public:
 
     uint256 GetHash() const;
         
-    uint256 GetPoWHash() const;
+   // uint256 GetPoWHash() const;
 
     bool IsProofOfWork() const;
 
@@ -130,17 +140,17 @@ public:
         vchBlockSig.clear();
     }
     
-    uint256 GetPoWHash() const
-    {
-        uint256 thash;
-        scrypt_1024_1_1_256(BEGIN(nVersion), BEGIN(thash));
-        return thash;
-    }
+    //uint256 GetPoWHash() const
+    //{
+    //    uint256 thash;
+    //    scrypt_1024_1_1_256(BEGIN(nVersion), BEGIN(thash));
+    //    return thash;
+    //}
 
     // PoSV: two types of block: proof-of-work or proof-of-stake
     bool IsProofOfStake() const
     {
-        return (vtx.size() > 1 && vtx[1].IsCoinStake());
+        return (vtx.size() > 1 && vtx[1]->IsCoinStake());
     }
 
     bool IsProofOfWork() const
@@ -149,22 +159,22 @@ public:
     }
 
     // PoSV: entropy bit for stake modifier if chosen by modifier
-    unsigned int GetStakeEntropyBit() const
-    {
-        // Take last bit of block hash as entropy bit
-        unsigned int nEntropyBit = (GetHash().GetLow64() & 1llu);
-        if (GetBoolArg("-printstakemodifier", false))
-            LogPrintf("GetStakeEntropyBit: hashBlock=%s nEntropyBit=%u\n", GetHash().ToString().c_str(), nEntropyBit);
-        return nEntropyBit;
-    }
+    unsigned int GetStakeEntropyBit() const;
+
 
     std::pair<COutPoint, unsigned int> GetProofOfStake() const
     {
-        return IsProofOfStake()? std::make_pair(vtx[1].vin[0].prevout, vtx[1].nTime) : std::make_pair(COutPoint(), (unsigned int)0);
+        return IsProofOfStake()? std::make_pair(vtx[1]->vin[0].prevout, vtx[1]->nTime) : std::make_pair(COutPoint(), (unsigned int)0);
     }
 
     // PoSV: get max transaction timestamp
-    int64_t GetMaxTransactionTime() const;
+    int64_t GetMaxTransactionTime() const
+    {
+        int64_t maxTransactionTime = 0;
+        for (const auto& tx : vtx)
+            maxTransactionTime = std::max(maxTransactionTime, (int64_t)tx->nTime);
+        return maxTransactionTime;
+    }
 
     bool CheckBlockSignature() const;
 

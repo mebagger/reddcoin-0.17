@@ -19,7 +19,9 @@ public:
     {
         CSerializedNetMsg msg;
         msg.command = std::move(sCommand);
-        CVectorWriter{ SER_NETWORK, nFlags | nVersion, msg.data, 0, std::forward<Args>(args)... };
+        //PoSV
+        int32_t serModes = nVersion <= OLD_VERSION ? SER_NETWORK : SER_NETWORK | SER_POSMARKER;
+        CVectorWriter{ serModes, nFlags | nVersion, msg.data, 0, std::forward<Args>(args)... };
         return msg;
     }
 

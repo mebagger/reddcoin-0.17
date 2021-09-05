@@ -24,6 +24,7 @@
 #ifdef ENABLE_WALLET
 #include <qt/paymentserver.h>
 #include <qt/walletmodel.h>
+#include <wallet/wallet.h>
 #endif
 
 #include <interfaces/handler.h>

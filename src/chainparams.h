@@ -59,7 +59,6 @@ public:
 
     const Consensus::Params& GetConsensus() const { return consensus; }
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
-    const std::vector<unsigned char>& AlertKey() const { return vAlertPubKey; }
     const std::vector<unsigned char>& DevKey() const { return vDevPubKey; }
     int GetDefaultPort() const { return nDefaultPort; }
 
@@ -85,17 +84,17 @@ public:
     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
     //RDD PosV 
     /** Used if GenerateBitcoins is called with a negative number of threads */
-    int DefaultMinerThreads() const { return nMinerThreads; }
+    //int DefaultMinerThreads() const { return nMinerThreads; }
     bool RequireRPCPassword() const { return fRequireRPCPassword; }
     /** Make miner wait to have peers to avoid wasting work */
     bool MiningRequiresPeers() const { return fMiningRequiresPeers; }
-    /** Allow mining of a min-difficulty block */
-    bool AllowMinDifficultyBlocks() const { return fAllowMinDifficultyBlocks; }
 protected:
     CChainParams() {}
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;
+    // Raw pub key bytes for the dev funding.
+    std::vector<unsigned char> vDevPubKey;
     int nDefaultPort;
     uint64_t nPruneAfterHeight;
     std::vector<std::string> vSeeds;
@@ -114,7 +113,6 @@ protected:
     //RDD PoSV 
     bool fRequireRPCPassword;
     bool fMiningRequiresPeers;
-    //bool fAllowMinDifficultyBlocks;
     bool fSkipProofOfWorkCheck;
 };
 

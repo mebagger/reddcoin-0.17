@@ -9,6 +9,7 @@
 #include <chain.h>
 #include <primitives/block.h>
 #include <uint256.h>
+#include <util.h>
 
 typedef int64_t int64;
 typedef uint64_t uint64;
@@ -21,7 +22,7 @@ const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfSta
     return pindex;
 }
 
-unsigned int static KimotoGravityWell(const CBlockIndex* pindexLast, const CBlockHeader *pblock, uint64_t TargetBlocksSpacingSeconds, uint64_t PastBlocksMin, uint64_t PastBlocksMax)
+unsigned int static KimotoGravityWell(const CBlockIndex* pindexLast, const CBlockHeader *pblock, uint64_t TargetBlocksSpacingSeconds, uint64_t PastBlocksMin, uint64_t PastBlocksMax, const Consensus::Params& params)
 {
     const CBlockIndex  *BlockLastSolved = pindexLast;
     const CBlockIndex  *BlockReading    = pindexLast;
@@ -130,10 +131,10 @@ unsigned int static KimotoGravityWell(const CBlockIndex* pindexLast, const CBloc
         bnNew = bnProofOfStakeLimit;
     }
 
-	LogPrint("kgw", "Difficulty Retarget - Kimoto Gravity Well\n");
-	LogPrint("kgw", "PastRateAdjustmentRatio = %g\n", PastRateAdjustmentRatio);
-	LogPrint("kgw", "Before: %08x  %s\n", BlockLastSolved->nBits, arith_uint256().SetCompact(BlockLastSolved->nBits).ToString().c_str());
-	LogPrint("kgw", "After:  %08x  %s\n", bnNew.GetCompact(), bnNew.ToString().c_str());
+	LogPrintf("kgw", "Difficulty Retarget - Kimoto Gravity Well\n");
+	LogPrintf("kgw", "PastRateAdjustmentRatio = %g\n", PastRateAdjustmentRatio);
+	LogPrintf("kgw", "Before: %08x  %s\n", BlockLastSolved->nBits, arith_uint256().SetCompact(BlockLastSolved->nBits).ToString().c_str());
+	LogPrintf("kgw", "After:  %08x  %s\n", bnNew.GetCompact(), bnNew.ToString().c_str());
 
      return bnNew.GetCompact();
 }
@@ -161,9 +162,9 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     uint64_t PastBlocksMin = PastSecondsMin / BlocksTargetSpacing;
     uint64_t PastBlocksMax = PastSecondsMax / BlocksTargetSpacing;
 
-   	LogPrint("kgw", "%s : Height = %s (%s) PastBlocksMin = %s, PastBlocksMax = %s \n", __func__, pindexLast->nHeight, pindexLast->GetBlockHash().ToString(), PastBlocksMin, PastBlocksMax);
+   	LogPrintf("kgw", "%s : Height = %s (%s) PastBlocksMin = %s, PastBlocksMax = %s \n", __func__, pindexLast->nHeight, pindexLast->GetBlockHash().ToString(), PastBlocksMin, PastBlocksMax);
 
-    return KimotoGravityWell(pindexLast, pblock, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax);
+    return KimotoGravityWell(pindexLast, pblock, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax,  params);
 }
 
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params)
@@ -184,3 +185,4 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
 
     return true;
 }
+

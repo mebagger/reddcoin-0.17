@@ -15,6 +15,7 @@
 
 class CWallet;
 class CBlockIndex;
+class uint256;
 
 /** General change type (added, updated, removed). */
 enum ChangeType

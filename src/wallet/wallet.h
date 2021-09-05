@@ -21,6 +21,8 @@
 #include <wallet/coinselection.h>
 #include <wallet/walletdb.h>
 #include <wallet/walletutil.h>
+#include <wallet/rpcwallet.h>
+#include <primitives/transaction.h>
 #include <kernel.h>
 #include <txdb.h>
 
@@ -87,6 +89,7 @@ class CScript;
 class CTxMemPool;
 class CBlockPolicyEstimator;
 class CWalletTx;
+class CTransaction;
 struct FeeCalculation;
 enum class FeeEstimateMode;
 
@@ -801,6 +804,9 @@ public:
      */
     bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet,
                     const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const;
+    
+    bool SelectCoinsSimple(const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, 
+                    CAmount& nValueRet, unsigned int nSpendTime, int nMinConf) const;
 
     const WalletLocation& GetLocation() const { return m_location; }
 
@@ -857,6 +863,8 @@ public:
      * populate vCoins with vector of available COutputs.
      */
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlySafe=true, const CCoinControl *coinControl = nullptr, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0, const int nMinDepth = 0, const int nMaxDepth = 9999999, uint32_t nSpendTime = 0) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    // PoSV: ??
+    void AvailableCoinsMinConf(std::vector<COutput>& vCoins, int nConf) const;
 
     /**
      * Return list of available coins and locked coins grouped by non-change output address.
@@ -971,8 +979,7 @@ public:
     // PoSV
     CAmount GetStake() const;
     bool GetStakeWeight(uint64_t& nAverageWeight, uint64_t& nTotalWeight);
-    bool CreateCoinStake(unsigned int nBits, int64_t nSearchInterval, CAmount& nFees, CMutableTransaction& txNew, CKey& key, int nVer);
-    bool SignBlock(CBlock *pblock, CAmount& nFees);
+    bool CreateCoinStake(unsigned int nBits, int64_t nSearchInterval, CAmount& nFees, CMutableTransaction& txNew, const CKeyStore& keystore, int nVer);
     CAmount GetStakedWatchOnlyBalance() const;
     CAmount GetUnconfirmedBalance() const;
     CAmount GetImmatureBalance() const;

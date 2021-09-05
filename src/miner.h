@@ -15,9 +15,17 @@
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
+extern int64_t nLastCoinStakeSearchInterval;
+
 class CBlockIndex;
 class CChainParams;
 class CScript;
+class CWallet;
+
+
+// PoSV
+inline int64_t PastDrift(int64_t nTime)   { return nTime - 2 * 60 * 60; } // up to 2 hours from the past
+inline int64_t FutureDrift(int64_t nTime) { return nTime + 2 * 60 * 60; } // up to 2 hours from the future
 
 namespace Consensus { struct Params; };
 
@@ -157,7 +165,7 @@ public:
     BlockAssembler(const CChainParams& params, const Options& options);
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
-    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx=true);
+    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx=true, CWallet* pwallet=nullptr, bool* pfPoSCancel=nullptr);
 
 private:
     // utility functions
@@ -196,5 +204,10 @@ private:
 /** Modify the extranonce in a block */
 void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);
+
+namespace boost {
+    class thread_group;
+} // namespace boost
+void ReddStake(boost::thread_group& threadGroup);
 
 #endif // BITCOIN_MINER_H

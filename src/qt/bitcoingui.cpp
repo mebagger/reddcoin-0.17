@@ -34,6 +34,8 @@
 #include <ui_interface.h>
 #include <util.h>
 
+#include <wallet/wallet.h>
+
 #include <iostream>
 
 #include <QAction>

@@ -42,7 +42,8 @@ public:
     bool fCoinStake;
 
     //! transaction timestamp
-    int64_t nTime;
+    unsigned int nTime;
+    
 
     //! construct a Coin from a CTxOut and height/coinbase information.
     Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, bool fCoinStakeIn, int nTimeIn) :
@@ -53,9 +54,11 @@ public:
     void Clear() {
         out.SetNull();
         fCoinBase = false;
-        fCoinStake = false; //PoSV
         nHeight = 0;
+        fCoinStake = false; //PoSV
         nTime = 0; //PoSV
+        
+        
     }
 
     //! empty constructor
