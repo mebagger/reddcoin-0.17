@@ -1117,7 +1117,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
     }
 
     // Check the header
-    if (block.IsProofOfWork() && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
+    if (block.GetBlockTime() > CHECK_POW_FROM_NTIME && block.IsProofOfWork() && !CheckProofOfWork(block.GetPoWHash(), block.nBits, consensusParams))
         return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
 
     return true;
@@ -1864,10 +1864,17 @@ bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state,
 {
     uint256 targetProofOfStake = uint256();
     // PoSV: verify hash target and signature of coinstake tx
-    if (block.IsProofOfStake() && !CheckProofOfStake(block.vtx[1], block.nBits, pindex->hashProof , targetProofOfStake)) {
+    
+    
+    if (pindex->hashProof == targetProofOfStake) {
+        if (!VerifyHashTarget(block, pindex->hashProof))
+            return state.Invalid(error("%s : VerifyHashTarget() failed", __func__));
+    }
+    /**if (block.IsProofOfStake() && !CheckProofOfStake(block.vtx[1], block.nBits, pindex->hashProof , targetProofOfStake)) {
         LogPrintf("WARNING: %s: check proof-of-stake failed for block %s\n", __func__, block.GetHash().ToString());
         return false; // do not error here as we expect this during initial block download
     }
+    **/
 
     // PoSV: compute stake entropy bit for stake modifier
     unsigned int nEntropyBit = GetStakeEntropyBit(block);
@@ -1933,6 +1940,40 @@ bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state,
     setDirtyBlockIndex.insert(pindex);  // queue a write to disk
 
     return true;
+}
+
+// Verify hash target and signature of coinstake tx
+bool VerifyHashTarget(const CBlock& block, uint256& hashProof)
+{
+	AssertLockHeld(cs_main);
+
+	uint256 hash = block.GetHash();
+    bool fDebug = gArgs.GetBoolArg("-debug", false);
+
+	if (hash != Params().GetConsensus().hashGenesisBlock ) {
+
+		// Verify hash target and signature of coinstake tx
+		if (block.IsProofOfStake())
+		{
+			if (fDebug)
+				LogPrintf("ProofOfStake: VerifyHashTarget(): hash %s, nBits %i\n", block.vtx[1]->GetHash().ToString().c_str(), block.nBits);
+
+			uint256 targetProofOfStake = uint256();
+			if (!CheckProofOfStake(block.vtx[1], block.nBits, hashProof, targetProofOfStake))
+			{
+				LogPrintf("WARNING: VerifyHashTarget(): check proof-of-stake failed for block %s\n", hash.ToString());
+				return false; // do not error here as we expect this during initial block download
+			}
+		}
+		else if (block.IsProofOfWork())
+		{
+			// PoW is checked in CheckBlock()
+			hashProof = block.GetPoWHash();
+		}
+	}
+	hashProof = uint256();
+
+	return true;
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
@@ -3282,11 +3323,8 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true, bool fOldClient=false)
 {
     // Check proof of work matches claimed amount
-    if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
+    if (block.GetBlockTime() > CHECK_POW_FROM_NTIME && fCheckPOW && block.IsProofOfWork() && !CheckProofOfWork(block.GetPoWHash(), block.nBits, consensusParams))
     {
-        if (fOldClient)
-            return false;
-        else
             return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
     }
 

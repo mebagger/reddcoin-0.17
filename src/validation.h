@@ -521,6 +521,9 @@ bool GetCoinAge(const CTransaction& tx, const CCoinsViewCache &view, uint64_t& n
 bool SignBlock(CBlock& block, const CKeyStore& keystore);
 bool CheckBlockSignature(const CBlock& block);
 bool IsDevTx(const CTransaction& tx);
+// Verify hash target and signature of coinstake tx
+bool VerifyHashTarget(const CBlock& block, uint256& hashProof);
+//bool IsStaking();
 
 // PoSV
 //set<pair<COutPoint, unsigned int> > setStakeSeen;

@@ -7,13 +7,13 @@
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
 #include <primitives/transaction.h>
+#include <crypto/scrypt.h>
 #include <serialize.h>
+#include <timedata.h>
 #include <uint256.h>
+#include <util.h>
+#include <utilstrencodings.h>
 
-//#include <crypto/scrypt.h>
-//#include <timedata.h>
-//#include <util.h>
-//#include <utilstrencodings.h>
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -84,7 +84,7 @@ public:
 
     uint256 GetHash() const;
         
-   // uint256 GetPoWHash() const;
+    uint256 GetPoWHash() const;
 
     bool IsProofOfWork() const;
 
@@ -140,12 +140,12 @@ public:
         vchBlockSig.clear();
     }
     
-    //uint256 GetPoWHash() const
-    //{
-    //    uint256 thash;
-    //    scrypt_1024_1_1_256(BEGIN(nVersion), BEGIN(thash));
-    //    return thash;
-    //}
+    uint256 GetPoWHash() const
+    {
+        uint256 thash;
+        scrypt_1024_1_1_256(BEGIN(nVersion), BEGIN(thash));
+        return thash;
+    }
 
     // PoSV: two types of block: proof-of-work or proof-of-stake
     bool IsProofOfStake() const

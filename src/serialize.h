@@ -929,8 +929,8 @@ public:
         return nSize;
     }
 
-    int GetVersion() const { return nVersion; }
     int GetType() const { return nType; }
+    int GetVersion() const { return nVersion; }
 };
 
 template<typename Stream>

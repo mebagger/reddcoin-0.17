@@ -18,12 +18,12 @@ uint256 CBlockHeader::GetHash() const
     return SerializeHash(*this);
 }
 
-//uint256 CBlockHeader::GetPoWHash() const
-//{
-//    uint256 thash;
-//    scrypt_1024_1_1_256(BEGIN(nVersion), BEGIN(thash));
-//    return thash;
-//}
+uint256 CBlockHeader::GetPoWHash() const
+{
+    uint256 thash;
+    scrypt_1024_1_1_256(BEGIN(nVersion), BEGIN(thash));
+    return thash;
+}
 
 // PoSV
 bool CBlockHeader::IsProofOfWork() const
@@ -67,8 +67,9 @@ bool CBlock::CheckBlockSignature() const
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, nFlags=%08x, vchBlockSig=%s, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, PoW=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, nFlags=%08x, vchBlockSig=%s, vtx=%u)\n",
         GetHash().ToString(),
+        GetPoWHash().ToString().c_str(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
