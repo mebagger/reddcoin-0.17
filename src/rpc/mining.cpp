@@ -175,6 +175,14 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
             throw JSONRPCError(-100, "Unable to sign block, wallet locked?");
 
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
+            if(shared_pblock != nullptr){
+                const CBlock& Thisblock = *pblock;
+                printf("generateBlocks() block.GetBlockTime= %lu \n",Thisblock.GetBlockTime() );
+                printf("generateBlocks() nTIME= %lu \n", (int64_t)Thisblock.vtx[0]->nTime);
+                printf("generateBlocks() Block: %s \n", Thisblock.ToString().c_str() );
+            }else{
+                printf("generateBlocks() Block: Is NuLL \n" );
+            }
         if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
         ++nHeight;
@@ -786,6 +794,12 @@ static UniValue submitblock(const JSONRPCRequest& request)
             }
         }
     }
+    
+        //const CBlock& Thisblock = *pblock;
+        printf("submitblock() block.GetBlockTime= %lu \n",block.GetBlockTime() );
+        printf("submitblock() nTIME= %lu \n", (int64_t)block.vtx[0]->nTime);
+        printf("submitblock() Block: %s \n", block.ToString().c_str() );
+    
 
     // PoSV ??: check block before attempting to sign it
     CValidationState state;

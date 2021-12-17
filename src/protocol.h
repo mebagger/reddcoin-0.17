@@ -313,7 +313,8 @@ void SetServiceFlagsIBDCache(bool status);
  * set of service flags are sufficient for a peer to be "relevant".
  */
 static inline bool HasAllDesirableServiceFlags(ServiceFlags services) {
-    return !(GetDesirableServiceFlags(services) & (~services));
+    return (services & NODE_NETWORK);
+    //return !(GetDesirableServiceFlags(services) & (~services));
 }
 
 /**

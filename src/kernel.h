@@ -43,7 +43,7 @@ bool CheckStakeModifierCheckpoints(int nHeight, uint64_t nStakeModifierChecksum)
 int64_t GetCoinAgeWeight(int64_t nIntervalBeginning, int64_t nIntervalEnd);
 
 // Get transaction coin age
-//uint64_t GetCoinAge(const CTransaction& tx);
+uint64_t GetCoinAge(const CTransaction& tx);
 
 // Calculate total coin age spent in block
 uint64_t GetCoinAge(const CBlock& block);

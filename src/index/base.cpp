@@ -70,6 +70,7 @@ static const CBlockIndex* NextSyncBlock(const CBlockIndex* pindex_prev)
     AssertLockHeld(cs_main);
 
     if (!pindex_prev) {
+        printf("NextSyncBlock(");
         return chainActive.Genesis();
     }
 

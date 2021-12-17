@@ -132,7 +132,11 @@ static int64_t GetStakeModifierSelectionInterval()
 // select a block from the candidate blocks in vSortedByTimestamp, excluding
 // already selected blocks in vSelectedBlocks, and with timestamp up to
 // nSelectionIntervalStop.
-static bool SelectBlockFromCandidates(vector<pair<int64_t, uint256> >& vSortedByTimestamp, map<uint256, const CBlockIndex*>& mapSelectedBlocks, int64_t nSelectionIntervalStop, uint64_t nStakeModifierPrev, const CBlockIndex** pindexSelected)
+static bool SelectBlockFromCandidates(
+    vector<pair<int64_t, uint256> >& vSortedByTimestamp, 
+    map<uint256, const CBlockIndex*>& mapSelectedBlocks, 
+    int64_t nSelectionIntervalStop, uint64_t nStakeModifierPrev, 
+    const CBlockIndex** pindexSelected)
 {
     bool fSelected = false;
     arith_uint256 hashBest = 0;
@@ -140,7 +144,7 @@ static bool SelectBlockFromCandidates(vector<pair<int64_t, uint256> >& vSortedBy
     for (const auto& item : vSortedByTimestamp)
     {
         if (!mapBlockIndex.count(item.second))
-            return error("SelectBlockFromCandidates: failed to find block index for candidate block %s", item.second.ToString().c_str());
+            return error("SelectBlockFromCandidates: failed to find block index for candidate block %s", item.second.ToString());
         const CBlockIndex* pindex = mapBlockIndex[item.second];
         if (fSelected && pindex->GetBlockTime() > nSelectionIntervalStop)
             break;
@@ -166,7 +170,7 @@ static bool SelectBlockFromCandidates(vector<pair<int64_t, uint256> >& vSortedBy
         }
     }
     if (gArgs.GetBoolArg("-printstakemodifier", false))
-        LogPrintf("SelectBlockFromCandidates: selection hash=%s\n", hashBest.ToString().c_str());
+        LogPrintf("SelectBlockFromCandidates: selection hash=%s\n", hashBest.ToString());
     return fSelected;
 }
 
@@ -211,11 +215,28 @@ bool ComputeNextStakeModifier(const CBlockIndex* pindexPrev, uint64_t& nStakeMod
     const CBlockIndex* pindex = pindexPrev;
     while (pindex && pindex->GetBlockTime() >= nSelectionIntervalStart) {
         vSortedByTimestamp.push_back(make_pair(pindex->GetBlockTime(), pindex->GetBlockHash()));
+        if (gArgs.GetBoolArg("-printstakemodifier", false)){
+        LogPrintf("ComputeNextStakeModifier: prev EpochTime=%lu time=%s height=%d hash=%s\n", pindex->GetBlockTime(), FormatISO8601DateTime(pindex->GetBlockTime()), pindex->nHeight, pindex->GetBlockHash().ToString());
+        }
         pindex = pindex->pprev;
     }
     int nHeightFirstCandidate = pindex ? (pindex->nHeight + 1) : 0;
     reverse(vSortedByTimestamp.begin(), vSortedByTimestamp.end());
-    sort(vSortedByTimestamp.begin(), vSortedByTimestamp.end());
+    sort(vSortedByTimestamp.begin(), vSortedByTimestamp.end(), [] (const pair<int64_t, uint256> &a, const pair<int64_t, uint256> &b)
+    {
+        if (a.first != b.first)
+            return a.first < b.first;
+        // Timestamp equals - compare block hashes
+        const uint32_t *pa = a.second.GetDataPtr();
+        const uint32_t *pb = b.second.GetDataPtr();
+        int cnt = 256 / 32;
+        do {
+            --cnt;
+            if (pa[cnt] != pb[cnt])
+                return pa[cnt] < pb[cnt];
+        } while(cnt);
+            return false; // Elements are equal
+    });
 
     // Select 64 blocks from candidate blocks to generate stake modifier
     uint64_t nStakeModifierNew = 0;
@@ -232,7 +253,7 @@ bool ComputeNextStakeModifier(const CBlockIndex* pindexPrev, uint64_t& nStakeMod
         // add the selected block from candidates to selected list
         mapSelectedBlocks.insert(make_pair(pindex->GetBlockHash(), pindex));
         if (gArgs.GetBoolArg("-printstakemodifier", false))
-            LogPrintf("ComputeNextStakeModifier: selected round %d stop=%s height=%d bit=%d\n", nRound, FormatISO8601DateTime( nSelectionIntervalStop), pindex->nHeight, pindex->GetStakeEntropyBit());
+            LogPrintf("ComputeNextStakeModifier: selected round %d stop=%s height=%d hash=%s bit=%d\n", nRound, FormatISO8601DateTime( nSelectionIntervalStop), pindex->nHeight,pindex->GetBlockHash().ToString(), pindex->GetStakeEntropyBit());
     }
 
     // Print selection map for visualization of the selected blocks
@@ -383,7 +404,7 @@ bool CheckProofOfStake(const CTransactionRef& tx, unsigned int nBits, uint256& h
 
     // First try finding the previous transaction in database
     CTransactionRef txPrev;
-    uint256 hashBlock = uint256();
+    //uint256 hashBlock = uint256();
 
     // Transaction index is required to get to block header
     if (!g_txindex)
@@ -395,8 +416,8 @@ bool CheckProofOfStake(const CTransactionRef& tx, unsigned int nBits, uint256& h
         return error("CheckProofOfStake() : tx index not found");  // tx index not found
 
     // Read block header
-    if (!mapBlockIndex.count(hashBlock))
-        return error("CheckProofOfStake() : block not indexed"); // unable to read block of previous transaction
+    //if (!mapBlockIndex.count(hashBlock))
+    //    return error("CheckProofOfStake() : block not indexed"); // unable to read block of previous transaction
 
     CBlock block;    
 
@@ -472,7 +493,7 @@ bool CheckStakeModifierCheckpoints(int nHeight, uint64_t nStakeModifierChecksum)
 // guaranteed to be in main chain by sync-checkpoint. This rule is
 // introduced to help nodes establish a consistent view of the coin
 // age (trust score) of competing branches.
-/** Moved to validation.cpp
+
 uint64_t GetCoinAge(const CTransaction& tx)
 {
     arith_uint256 bnCentSecond = 0; // coin age in the unit of cent-seconds
@@ -483,17 +504,17 @@ uint64_t GetCoinAge(const CTransaction& tx)
 
     BOOST_FOREACH (const CTxIn& txin, tx.vin) {
         // First try finding the previous transaction in database
-        CTransaction txPrevious;
+        CTransactionRef txPrevious;
         uint256 hashTxPrev = txin.prevout.hash;
         uint256 hashBlock = uint256();
-        if (!GetTransaction(hashTxPrev, *txPrevious, hashBlock, true))
+        if (!GetTransaction(hashTxPrev, txPrevious, Params().GetConsensus(), hashBlock, true))
             continue; // previous transaction not in main chain
-        CMutableTransaction txPrev(txPrevious);
+        CMutableTransaction txPrev(*txPrevious);
         // Read block header
         CBlock block;
         if (!mapBlockIndex.count(hashBlock))
             return 0; // unable to read block of previous transaction
-        if (!ReadBlockFromDisk(block, mapBlockIndex[hashBlock]))
+        if (!ReadBlockFromDisk(block, mapBlockIndex[hashBlock], Params().GetConsensus()))
             return 0; // unable to read block of previous transaction
         if (block.nTime + Params().GetConsensus().nStakeMinAge > tx.nTime)
             continue; // only count coins meeting min age requirement
@@ -517,27 +538,21 @@ uint64_t GetCoinAge(const CTransaction& tx)
     arith_uint256 bnCoinDay = bnCentSecond * CENT / COIN / (24 * 60 * 60);
     if (gArgs.GetBoolArg("-debug", false) && gArgs.GetBoolArg("-printcoinage", false))
         LogPrintf("coin age bnCoinDay=%s\n", bnCoinDay.ToString().c_str());
-    nCoinAge = bnCoinDay.getuint64();
+    nCoinAge = bnCoinDay.GetLow64();
     return nCoinAge;
 }
-**/
 
 // PoSV: total coin age spent in block, in the unit of coin-days.
 uint64_t GetCoinAge(const CBlock& block)
 {
     uint64_t nCoinAge = 0;
-    uint64_t tCoinAge = 0;
-    CCoinsViewCache view(pcoinsTip.get());
 
     for (const auto& tx : block.vtx)
-    {
-        GetCoinAge(*tx, view, nCoinAge);
-        tCoinAge += nCoinAge;
-    }
+        nCoinAge += GetCoinAge(*tx);
 
     if (gArgs.GetBoolArg("-debug", false) && gArgs.GetBoolArg("-printcoinage", false))
         LogPrintf("block coin age total nCoinDays=%s\n", tCoinAge);
-    return tCoinAge;
+    return nCoinAge;
 }
 
 // PoSV2 determine the current inflation rate
@@ -571,7 +586,7 @@ double GetInflation(const CBlockIndex* pindex)
 	nPoSVRewards = nMoneySupply - nMoneySupplyPrev;
 	nInflation = (double(nPoSVRewards) / double(nMoneySupply)) * 12 * 100;
 
-	LogPrintf("inflation", "- Block rewards in last interval = %s. Inflation1 = %s\n", FormatMoney(nPoSVRewards), nInflation);
+	LogPrintf("inflation - Block rewards in last interval = %s. Inflation1 = %s\n", FormatMoney(nPoSVRewards), nInflation);
 
 	return nInflation;
 }
@@ -614,14 +629,14 @@ double GetInflationAdjustment(const CBlockIndex* pindex)
     double nRatio = (double(nMoneySupply) / double(nPoSVRewards));
     double nRawInflationAdjustment = ((nInflationTarget / 12) * nRatio); // looking at the last month of blocks
 
-    LogPrintf("inflation", "- Block rewards in last interval = %s. Inflation2 = %s\n", FormatMoney(nPoSVRewards), GetInflation(pindex));
+    LogPrintf("inflation - Block rewards in last interval = %s. Inflation2 = %s\n", FormatMoney(nPoSVRewards), GetInflation(pindex));
 
     double nInflationAdjustment = max(min(nRawInflationAdjustment, dMaxThreshold), dMinThreshold);
 
-	LogPrintf("inflation", "- Inflation Adjustment (Bounded) = %s. Using Max %s | Min %s thresholds\n", nInflationAdjustment, dMaxThreshold, dMinThreshold);
+	LogPrintf("inflation - Inflation Adjustment (Bounded) = %s. Using Max %s | Min %s thresholds\n", nInflationAdjustment, dMaxThreshold, dMinThreshold);
 
     int64_t nTime = GetTimeMicros() - nStart;
-    LogPrintf("bench", "- Inflation Unbound Adjustment = %s Using last %s blocks from height %s to height %s: %.2fms\n", nRawInflationAdjustment, nBlocksPerMonth, nHeightPrev, pindex->nHeight, nTime * 0.001);
+    LogPrintf("bench - Inflation Unbound Adjustment = %s Using last %s blocks from height %s to height %s: %.2fms\n", nRawInflationAdjustment, nBlocksPerMonth, nHeightPrev, pindex->nHeight, nTime * 0.001);
 
     return nInflationAdjustment;
 }
@@ -652,7 +667,7 @@ bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned int nRe
 
         i++;
     }
-    LogPrintf("super", "IsSuperMajority(): Version %s block: %s found of %s required in last %s blocks.\n", minVersion, nFound, nRequired, nToCheck);
+    LogPrintf("super IsSuperMajority(): Version %s block: %s found of %s required in last %s blocks.\n", minVersion, nFound, nRequired, nToCheck);
 
     return (nFound >= nRequired);
 }

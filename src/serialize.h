@@ -302,8 +302,11 @@ uint64_t ReadCompactSize(Stream& is)
         if (nSizeRet < 0x100000000ULL)
             throw std::ios_base::failure("non-canonical ReadCompactSize()");
     }
-    if (nSizeRet > (uint64_t)MAX_SIZE)
+    if (nSizeRet > (uint64_t)MAX_SIZE){
+        printf("ReadCompactSize() nSizeRet: %lu \n", nSizeRet );
+        printf("ReadCompactSize() MAX_SIZE: %lu \n", (uint64_t)MAX_SIZE);
         throw std::ios_base::failure("ReadCompactSize(): size too large");
+    }
     return nSizeRet;
 }
 

@@ -159,7 +159,15 @@ public:
     }
 
     // PoSV: entropy bit for stake modifier if chosen by modifier
-    unsigned int GetStakeEntropyBit() const;
+unsigned int GetStakeEntropyBit() const
+    {
+        // Take last bit of block hash as entropy bit
+        unsigned int nEntropyBit = (GetHash().GetCheapHash() & 1llu);
+        if (gArgs.GetBoolArg("-printstakemodifier", false))
+            LogPrintf("GetStakeEntropyBit: hashBlock=%s nEntropyBit=%u\n", GetHash().ToString().c_str(), nEntropyBit);
+        
+        return nEntropyBit;
+    }
 
 
     std::pair<COutPoint, unsigned int> GetProofOfStake() const

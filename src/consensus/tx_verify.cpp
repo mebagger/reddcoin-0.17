@@ -251,7 +251,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     if (tx.IsCoinStake())
     {
         // PoSV ??: coin stake tx earns reward instead of paying fee
-        uint64_t nCoinAge;
+        uint64_t nCoinAge = 0;
         if (!GetCoinAge(tx, inputs, nCoinAge))
             return state.DoS(100, false, REJECT_INVALID, "unable to get coin age for coinstake");
         //CAmount nStakeReward = tx.GetValueOut() - nValueIn;

@@ -33,12 +33,12 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
 
-    printf("CreateGenesisBlock () Start\n");
-    printf("genesis.nTime = %u \n", genesis.nTime);
-    printf("genesis.nNonce = %u \n", genesis.nNonce); 
-    printf("genesis.GetHash = %s \n", genesis.GetHash().ToString().c_str());
-    printf("genesis.hashMerkleRoot = %s \n", genesis.hashMerkleRoot.ToString().c_str());
-    printf("CreateGenesisBlock () End\n\n");
+    //printf("CreateGenesisBlock () Start\n");
+    //printf("genesis.nTime = %u \n", genesis.nTime);
+    //printf("genesis.nNonce = %u \n", genesis.nNonce); 
+    //printf("genesis.GetHash = %s \n", genesis.GetHash().ToString().c_str());
+    //printf("genesis.hashMerkleRoot = %s \n", genesis.hashMerkleRoot.ToString().c_str());
+    //printf("CreateGenesisBlock () End\n\n");
     return genesis;
 }
 
@@ -88,7 +88,7 @@ public:
         // Reddcoin did not enable this BIP 34
         // consensus.BIP34Hash = uint256S("0x0");
         // consensus.BIP34Height = 227931;
-        consensus.BIP65Height = 999388381; // block version 4 or greater ... maybe in the future? current version is 5
+        consensus.BIP65Height = 3779377; //1564154 block version 4 or greater ... maybe in the future? current version is 5
         consensus.BIP66Height = 0; // block height enabled by default
         consensus.powLimit = uint256S("0x00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 24 * 60 * 60; // 24 hours
@@ -163,7 +163,7 @@ public:
 
         genesis = CreateGenesisBlock(1390280400, 222583475, 0x1e0ffff0, 1, 10000 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
-        printf("hashGenesisBlock: %s \n", consensus.hashGenesisBlock.ToString().c_str()  );
+        //printf("hashGenesisBlock: %s \n", consensus.hashGenesisBlock.ToString().c_str()  );
         printf("genesis: %s \n", genesis.ToString().c_str() );
         assert(consensus.hashGenesisBlock == uint256S("0xb868e0d95a3c3c0e0dadc67ee587aaf9dc8acbf99e3b4b3110fad4eb74c1decc"));
         assert(genesis.hashMerkleRoot == uint256S("0xb502bc1dc42b07092b9187e92f70e32f9a53247feae16d821bebffa916af79ff"));

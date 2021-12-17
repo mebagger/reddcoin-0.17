@@ -217,17 +217,6 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
     const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
     s >> tx.nVersion;
-    //PoSV
-    if (tx.nVersion > POW_TX_VERSION)
-    {
-            
-        s >> tx.nTime;
-    }
-    else
-    {
-        tx.nTime = 0;
-        s >> tx.nTime;
-    } 
     unsigned char flags = 0;
     tx.vin.clear();
     tx.vout.clear();
@@ -256,6 +245,16 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
         throw std::ios_base::failure("Unknown transaction optional data");
     }
     s >> tx.nLockTime;
+    //PoSV
+    if (tx.nVersion > POW_TX_VERSION)
+    {
+            
+        s >> tx.nTime;
+    }else
+    {
+			*const_cast<uint32_t*>(&tx.nTime) = 0;
+	}
+
 }
 
 template<typename Stream, typename TxType>
@@ -263,17 +262,6 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
     s << tx.nVersion;
-    //PoSV
-    if (tx.nVersion > POW_TX_VERSION)
-    {
-            
-        s << tx.nTime;
-    }
-    else
-    {
-        *const_cast<uint32_t*>(&tx.nTime) = 0;
-        s << tx.nTime;
-    }
     unsigned char flags = 0;
     // Consistency check
     if (fAllowWitness) {
@@ -296,6 +284,13 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
         }
     }
     s << tx.nLockTime;
+    //PoSV
+    if (tx.nVersion > POW_TX_VERSION ) 
+    {
+            
+        s << tx.nTime;
+    }
+
 }
 
 
@@ -323,8 +318,8 @@ public:
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
     const int32_t nVersion;
-    const uint32_t nTime; //PoSV
     const uint32_t nLockTime;
+    const uint32_t nTime; //PoSV
     
 
 private:
@@ -415,8 +410,8 @@ struct CMutableTransaction
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     int32_t nVersion;
-    uint32_t nTime; //PoSV
     uint32_t nLockTime;
+    uint32_t nTime; //PoSV
     
 
     CMutableTransaction();

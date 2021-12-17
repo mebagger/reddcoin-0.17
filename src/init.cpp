@@ -348,7 +348,7 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {"-rpcssl", "-benchmark", "-h", "-help", "-socks", "-tor", "-debugnet", "-whitelistalwaysrelay",
-        "-prematurewitness", "-walletprematurewitness", "-promiscuousmempoolflags", "-blockminsize", "-dbcrashratio", "-forcecompactdb", "-usehd",
+        "-prematurewitness", "-walletprematurewitness", "-promiscuousmempoolflags", "-blockminsize", "-dbcrashratio", "-forcecompactdb", "-usehd", "-printstakemodifier", "-staketimio", "-staking",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-allowselfsignedrootcertificates", "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-rootcertificates=<file>", "-splash", "-uiplatform"};
 
@@ -570,6 +570,7 @@ static void BlockNotifyGenesisWait(bool, const CBlockIndex *pBlockIndex)
 {
     if (pBlockIndex != nullptr) {
         {
+            printf("BlockNotifyGenesisWait()");
             WaitableLock lock_GenesisWait(cs_GenesisWait);
             fHaveGenesis = true;
         }
@@ -1651,8 +1652,10 @@ bool AppInitMain()
     // Either install a handler to notify us when genesis activates, or set fHaveGenesis directly.
     // No locking, as this happens before any background thread is started.
     if (chainActive.Tip() == nullptr) {
+        printf("uiInterface.NotifyBlockTip.connect( \n" );
         uiInterface.NotifyBlockTip.connect(BlockNotifyGenesisWait);
     } else {
+        printf("Init Step(11) Block nHeight: %u \n", chainActive.Tip()->nHeight );
         fHaveGenesis = true;
     }
 

@@ -131,11 +131,12 @@ unsigned int static KimotoGravityWell(const CBlockIndex* pindexLast, const CBloc
         bnNew = bnProofOfStakeLimit;
     }
 
-	LogPrintf("kgw", "Difficulty Retarget - Kimoto Gravity Well\n");
-	LogPrintf("kgw", "PastRateAdjustmentRatio = %g\n", PastRateAdjustmentRatio);
-	LogPrintf("kgw", "Before: %08x  %s\n", BlockLastSolved->nBits, arith_uint256().SetCompact(BlockLastSolved->nBits).ToString().c_str());
-	LogPrintf("kgw", "After:  %08x  %s\n", bnNew.GetCompact(), bnNew.ToString().c_str());
-
+    if (gArgs.GetBoolArg("-debug", false)){
+	LogPrintf("kgw Difficulty Retarget - Kimoto Gravity Well\n");
+	LogPrintf("kgw PastRateAdjustmentRatio = %d \n", PastRateAdjustmentRatio);
+	LogPrintf("kgw Before: %08x  %s\n", BlockLastSolved->nBits, arith_uint256().SetCompact(BlockLastSolved->nBits).ToString() );
+	LogPrintf("kgw After:  %08x  %s\n", bnNew.GetCompact(), bnNew.ToString() );
+    }
      return bnNew.GetCompact();
 }
 
@@ -162,8 +163,10 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     uint64_t PastBlocksMin = PastSecondsMin / BlocksTargetSpacing;
     uint64_t PastBlocksMax = PastSecondsMax / BlocksTargetSpacing;
 
-   	LogPrintf("kgw", "%s : Height = %s (%s) PastBlocksMin = %s, PastBlocksMax = %s \n", __func__, pindexLast->nHeight, pindexLast->GetBlockHash().ToString(), PastBlocksMin, PastBlocksMax);
-
+    if (gArgs.GetBoolArg("-debug", false)){
+   	LogPrintf("kgw %s : Height = %s (%s) PastBlocksMin = %s PastBlocksMax = %s \n", __func__, pindexLast->nHeight, pindexLast->GetBlockHash().ToString(), PastBlocksMin, PastBlocksMax);
+    }
+    
     return KimotoGravityWell(pindexLast, pblock, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax,  params);
 }
 

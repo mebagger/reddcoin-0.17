@@ -615,7 +615,7 @@ void ReddcoinStaker(std::shared_ptr<CWallet> pwallet)
                 return;
             }
             CBlock *pblock = &pblocktemplate->block;
-            CAmount nFees = pblocktemplate->vTxFees[0] * -1;
+            //CAmount nFees = pblocktemplate->vTxFees[0] * -1;
             IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
             // PoSV: if proof-of-stake block found then process block
