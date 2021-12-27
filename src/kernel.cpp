@@ -397,32 +397,35 @@ bool CheckStakeKernelHash(unsigned int nBits, const CBlockHeader& blockFrom, uns
 bool CheckProofOfStake(const CTransactionRef& tx, unsigned int nBits, uint256& hashProofOfStake, uint256& targetProofOfStake)
 {
     if (!tx->IsCoinStake())
+    {
+        LogPrintf("CheckProofOfStake() : called on non-coinstake %s \n", tx->GetHash().ToString().c_str());
         return error("CheckProofOfStake() : called on non-coinstake %s", tx->GetHash().ToString().c_str());
+    }
 
     // Kernel (input 0) must match the stake hash target per coin age (nBits)
     const CTxIn& txin = tx->vin[0];
 
-    // First try finding the previous transaction in database
-    CTransactionRef txPrev;
-    //uint256 hashBlock = uint256();
-
     // Transaction index is required to get to block header
     if (!g_txindex)
+    {
+        LogPrintf("CheckProofOfStake() : transaction index not available\n");
         return error("CheckProofOfStake() : transaction index not available");
+    }
     
     // Get transaction index for the previous transaction
     CDiskTxPos postx;
     if (!g_txindex->FindTxPosition(txin.prevout.hash, postx))
+    {
+        LogPrintf("CheckProofOfStake() : tx index not found \n");
         return error("CheckProofOfStake() : tx index not found");  // tx index not found
+    }
 
-    // Read block header
-    //if (!mapBlockIndex.count(hashBlock))
-    //    return error("CheckProofOfStake() : block not indexed"); // unable to read block of previous transaction
 
     CBlock block;    
 
     // Read txPrev and header of its block
     CBlockHeader header;
+    CTransactionRef txPrev;
     {
         CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
         try {
@@ -438,16 +441,22 @@ bool CheckProofOfStake(const CTransactionRef& tx, unsigned int nBits, uint256& h
 
     // Verify signature
     {
+        LogPrintf("Verify signature \n");
         int nIn = 0;
         const CTxOut& prevOut = txPrev->vout[tx->vin[nIn].prevout.n];
         TransactionSignatureChecker checker(&(*tx), nIn, prevOut.nValue, PrecomputedTransactionData(*tx));
 
-        if (!VerifyScript(tx->vin[nIn].scriptSig, prevOut.scriptPubKey, &(tx->vin[nIn].scriptWitness), SCRIPT_VERIFY_P2SH, checker, nullptr))
+        if (!VerifyScript(tx->vin[nIn].scriptSig, prevOut.scriptPubKey, &(tx->vin[nIn].scriptWitness), SCRIPT_VERIFY_P2SH, checker, nullptr)){
+            LogPrintf("Verify signature: VerifyScript failed on coinstake %s \n", __func__, tx->GetHash().ToString());
             return error("%s: VerifyScript failed on coinstake %s", __func__, tx->GetHash().ToString());
+        }
     }
 
     if (!CheckStakeKernelHash(nBits, block, txin.prevout.n, txPrev, txin.prevout, tx->nTime, hashProofOfStake, targetProofOfStake, gArgs.GetBoolArg("-debug", false)))
+    {
+        LogPrintf("CheckStakeKernelHash:  failed on coinstake %s, hashProof=%s \n", tx->GetHash().ToString().c_str(), hashProofOfStake.ToString().c_str());
         return error("CheckProofOfStake() : INFO: check kernel failed on coinstake %s, hashProof=%s", tx->GetHash().ToString().c_str(), hashProofOfStake.ToString().c_str()); // may occur during initial download or if behind on block chain sync
+    }
 
     return true;
 }
@@ -551,7 +560,7 @@ uint64_t GetCoinAge(const CBlock& block)
         nCoinAge += GetCoinAge(*tx);
 
     if (gArgs.GetBoolArg("-debug", false) && gArgs.GetBoolArg("-printcoinage", false))
-        LogPrintf("block coin age total nCoinDays=%s\n", tCoinAge);
+        LogPrintf("block coin age total nCoinDays=%s\n", nCoinAge);
     return nCoinAge;
 }
 
