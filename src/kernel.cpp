@@ -676,8 +676,10 @@ bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned int nRe
 
         i++;
     }
-    LogPrintf("super IsSuperMajority(): Version %s block: %s found of %s required in last %s blocks.\n", minVersion, nFound, nRequired, nToCheck);
-
+    if ((gArgs.GetBoolArg("-debug", false)) && (gArgs.GetBoolArg("-printsuper", false)))
+    {
+    LogPrintf("super IsSuperMajority(): Height=%d Version=%s block: %s found of %s required in last %s blocks.\n",pstart->nHeight, minVersion, nFound, nRequired, nToCheck);
+    }
     return (nFound >= nRequired);
 }
 

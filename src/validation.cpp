@@ -1850,23 +1850,8 @@ static int64_t nBlocksTotal = 0;
 // These checks can only be done when all previous block have been added.
 bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state, CBlockIndex* pindex, bool fJustCheck)
 {
-    uint256 targetProofOfStake = uint256();
-    // PoSV: verify hash target and signature of coinstake tx
-    
-    
-    if (pindex->hashProof == targetProofOfStake) {
-        if (!VerifyHashTarget(block, pindex->hashProof))
-        {
-            LogPrintf("VerifyHashTarget() failed");
-            return state.Invalid(error("%s : VerifyHashTarget() failed", __func__));
-        }
-    }
 
-    if (block.IsProofOfStake() && !CheckProofOfStake(block.vtx[1], block.nBits, pindex->hashProof , targetProofOfStake)) {
-        LogPrintf("WARNING: %s: check proof-of-stake failed for block %s\n", __func__, block.GetHash().ToString());
-        return false; // do not error here as we expect this during initial block download
-    }
-    
+    uint256 targetProofOfStake = uint256();   
 
     // PoSV: compute stake entropy bit for stake modifier
     unsigned int nEntropyBit = GetStakeEntropyBit(block);
@@ -1913,12 +1898,22 @@ bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state,
             {
                 if (!IsDevTx(*block.vtx[1]))
                 {
-                    LogPrintf("WARNING: AcceptBlock(): check proof-of-stake developer address failed for block %s\n", block.GetHash().ToString().c_str());
-                    return state.DoS(100, error("AcceptBlock() : contains a incorrect developer transaction"),
+                    LogPrintf("WARNING: ReddcoinContextualBlockChecks(): check proof-of-stake developer address failed for block %s\n", block.GetHash().ToString().c_str());
+                    return state.DoS(100, error("ReddcoinContextualBlockChecks()) : contains a incorrect developer transaction"),
                                                      REJECT_INVALID, "bad-dev-address");
                 }
             }
         }
+
+    // PoSV: verify hash target and signature of coinstake tx
+    if (pindex->hashProof == targetProofOfStake) {
+        if (!VerifyHashTarget(block, pindex->hashProof))
+        {
+            LogPrintf("VerifyHashTarget() failed");
+            return state.Invalid(error("%s : VerifyHashTarget() failed", __func__));
+        }
+    }
+
     // write everything to index
     if (block.IsProofOfStake())
     {
@@ -1926,10 +1921,7 @@ bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state,
         pindex->nStakeTime = block.vtx[1]->nTime;
         pindex->hashProof = targetProofOfStake;
     }
-    if (!pindex->SetStakeEntropyBit(nEntropyBit))
-        return error("ConnectBlock() : SetStakeEntropyBit() failed");
-        
-    pindex->SetStakeModifier(nStakeModifier, fGeneratedStakeModifier);
+
     setDirtyBlockIndex.insert(pindex);  // queue a write to disk
 
     return true;
@@ -1993,11 +1985,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
 
-    if (pindex->nStakeModifier == 0 && pindex->nStakeModifierChecksum == 0 && !ReddcoinContextualBlockChecks(block, state, pindex, fJustCheck))
-    {
-        LogPrintf("ConnectBlock() failed PoS check: %s state=%s \n", block.GetHash().ToString(), state.ToString() );
-        return error("%s: failed PoS check %s", __func__, FormatStateMessage(state));
-    }
 
     // Check it again in case a previous version let a bad block in
     // NOTE: We don't currently (re-)invoke ContextualCheckBlock() or
@@ -2257,7 +2244,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
+            if (fScriptChecks && !CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
             {
                 LogPrintf("ConnectBlock() CheckInputs: block=%s state=%s tx=%s \n", block.GetHash().ToString(), state.ToString(), tx.GetHash().ToString() );
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
@@ -2313,13 +2300,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             double fInflationAdjustment = GetInflationAdjustment(pindex->pprev);
         	nCalculatedStakeReward = GetProofOfStakeReward(nCoinAge, nFees, fInflationAdjustment);
 
-            if (!IsDevTx(*block.vtx[1])) {
-                return state.DoS(100, error("ConnectBlock() : bad-dev-address"));
-            }
-
-
             // Check output values
             if (block.nVersion >= 5 && IsSuperMajority(5, pindex->pprev, Params().GetConsensus().nEnforceBlockUpgradeMajority_5)) {
+
+                if (!IsDevTx(*block.vtx[1])) {
+                return state.DoS(100, error("ConnectBlock() : bad-dev-address"));
+                 }
 
                 nCalculatedPoSVEndCredit = nCalculatedStakeReward * 0.92;
                 nCalculatedDevEndCredit = nCalculatedStakeReward - nCalculatedPoSVEndCredit;
@@ -3244,6 +3230,10 @@ CBlockIndex* CChainState::AddToBlockIndex(const CBlockHeader& block, bool fSetAs
         pindexNew->BuildSkip();
     }
     pindexNew->nTimeMax = (pindexNew->pprev ? std::max(pindexNew->pprev->nTimeMax, pindexNew->nTime) : pindexNew->nTime);
+    if (fSetAsProofOfstake){
+        pindexNew->SetProofOfStake();
+        setStakeSeen.insert(std::make_pair(pindexNew->prevoutStake, pindexNew->nStakeTime));
+    }
     pindexNew->nChainWork = (pindexNew->pprev ? pindexNew->pprev->nChainWork : 0) + GetBlockProof(*pindexNew);
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
     if (pindexBestHeader == nullptr || pindexBestHeader->nChainWork < pindexNew->nChainWork)
@@ -3641,7 +3631,10 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
         }
     }
 
-    // Enforce rule that the coinbase starts with serialized block height BIP34Height
+    // Enforce block.nVersion=2 rule that the coinbase starts with serialized block height
+    // Reddcoin did not enable this BIP 34
+    // TBD
+    //
     /**
     if (nHeight >= consensusParams.BIP34Height)
     {
@@ -3715,10 +3708,14 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, bool fProofOfStak
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
             pindex = miSelf->second;
-            if (ppindex)
+            if (ppindex){
                 *ppindex = pindex;
-            if (pindex->nStatus & BLOCK_FAILED_MASK)
-                return state.Invalid(error("%s: block %s is marked invalid", __func__, hash.ToString()), 0, "duplicate");
+                LogPrintf("AcceptBlockHeader() ppindex True: nStatus=%d BLOCK_FAILED_MASK=%d height=%d block=%s state=%s \n", pindex->nStatus, BLOCK_FAILED_MASK, pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state) );
+            }
+            if (pindex->nStatus & BLOCK_FAILED_MASK){
+                LogPrintf("AcceptBlockHeader() ppindex Fail: nStatus=%d BLOCK_FAILED_MASK=%d height=%d block=%s state=%s \n", pindex->nStatus, BLOCK_FAILED_MASK, pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state) );
+                return state.Invalid(error("%s: block %s is marked invalid height=%d state=%s nStatus=%d", __func__, hash.ToString(), pindex->nHeight, state.ToString(), pindex->nStatus), 0, "duplicate");
+            }
             return true;
         }
 
@@ -3730,33 +3727,33 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, bool fProofOfStak
                 fSetAsPos = !fProofOfStake; // our guess was wrong - correct it
             else
             {
-                LogPrintf("AcceptBlockHeader() CheckBlockHeaderFalse: block=%s state=%s \n", block.GetHash().ToString(), state.ToString() );
-                state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
                 return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
             }
         }
-        LogPrintf("AcceptBlockHeader() CheckBlockHeaderTrue: block=%s state=%s \n", block.GetHash().ToString(), state.ToString() );
 
         // Get prev block index
         CBlockIndex* pindexPrev = nullptr;
+        int nHeight = 0;
         BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
         if (mi == mapBlockIndex.end())
-        {
-            LogPrintf("AcceptBlockHeader() mapBlockIndex.endFalse: height=%d  block=%s state=%s \n", (*mi).second->nHeight, (*mi).second->GetBlockHash().ToString(), state.ToString() );
             return state.DoS(10, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
-        }
         pindexPrev = (*mi).second;
+        nHeight = pindexPrev->nHeight+1;
+
+        //If this is a reorg, check that it is not too deep
+        int nMaxReorgDepth = gArgs.GetArg("-maxreorg", chainparams.GetConsensus().nMaxReorganizationDepth);
+        if (chainActive.Height() - nHeight >= nMaxReorgDepth)
+            return state.DoS(1, error("%s: forked chain older than max reorganization depth (height %d)", __func__, nHeight));
+
+        if (block.IsProofOfWork() && nHeight > chainparams.GetConsensus().nLastProofOfWorkHeight)
+            return state.Invalid(error("%s : reject proof-of-work at height %d", __func__, nHeight),
+                             REJECT_INVALID, "wrong-proof-of-work");
+
+
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
-        {
-            LogPrintf("AcceptBlockHeader() pindexPrev->nStatusFalse: nStatus=%d BLOCK_FAILED_MASK=%d height=%d block=%s state=%s \n", pindexPrev->nStatus, BLOCK_FAILED_MASK, pindexPrev->nHeight, pindexPrev->GetBlockHash().ToString(), state.ToString() );
             return state.DoS(100, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
-        }
          if (!ContextualCheckBlockHeader(block, fSetAsPos, state, chainparams, pindexPrev, GetAdjustedTime()))
-         {
-            LogPrintf("AcceptBlockHeader() ContextualCheckBlockHeaderFalse: block=%s state=%s \n", block.GetHash().ToString(), state.ToString() );
             return error("%s: Consensus::ContextualCheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
-         }
-         LogPrintf("AcceptBlockHeader() ContextualCheckBlockHeaderTrue: block=%s state=%s \n", block.GetHash().ToString(), state.ToString() );
 
         // If the previous block index isn't valid, determine if it descends from any block which
         // has been found invalid (m_failed_blocks), then mark pindexPrev and any blocks
@@ -3767,12 +3764,10 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, bool fProofOfStak
                     assert(failedit->nStatus & BLOCK_FAILED_VALID);
                     CBlockIndex* invalid_walk = pindexPrev;
                     while (invalid_walk != failedit) {
-                        LogPrintf("AcceptBlockHeader() marking failed: block=%s height=%s state=%s \n", invalid_walk->GetBlockHash().ToString(), invalid_walk->nHeight, state.ToString() );
                         invalid_walk->nStatus |= BLOCK_FAILED_CHILD;
                         setDirtyBlockIndex.insert(invalid_walk);
                         invalid_walk = invalid_walk->pprev;
                     }
-                    LogPrintf("AcceptBlockHeader() prev block invalid: block=%s height=%s state=%s \n", invalid_walk->GetBlockHash().ToString(), invalid_walk->nHeight, state.ToString() );
                     return state.DoS(100, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
                 }
             }
@@ -3809,8 +3804,8 @@ bool ProcessNewBlockHeaders(int32_t& nPoSTemperature, const uint256& lastAccepte
             CBlockIndex *pindex = nullptr; // Use a temp pindex instead of ppindex to avoid a const_cast
             if (!g_chainstate.AcceptBlockHeader(header, header.nFlags & CBlockIndex::BLOCK_PROOF_OF_STAKE, state, chainparams, &pindex, fOldClient)) {
                 nPoSTemperature += POW_HEADER_COOLING;
-                if (first_invalid){ *first_invalid = header;}
-                LogPrintf("AcceptBlockHeader() prev block invalid: BLOCK_PROOF_OF_STAKE=%d block=%s height=%s state=%s \n", CBlockIndex::BLOCK_PROOF_OF_STAKE, pindex->GetBlockHash().ToString(), pindex->nHeight, state.ToString() );
+                if (first_invalid) *first_invalid = header;
+                LogPrintf("ProcessNewBlockHeaders() prev block invalid: BLOCK_PROOF_OF_STAKE=%d block=%s height=%s state=%s \n", CBlockIndex::BLOCK_PROOF_OF_STAKE, pindex->GetBlockHash().ToString(), pindex->nHeight, state.ToString() );
                 return false;
             }
             if (ppindex) {
@@ -3865,8 +3860,6 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     if (!AcceptBlockHeader(block, block.IsProofOfStake(), state, chainparams, &pindex))
         return false;
 
-    CheckBlockIndex(chainparams.GetConsensus());
-
     // PoSV ??: we should only accept blocks that can be connected to a prev block with validated PoS
     if (fCheckPoS && pindex->pprev && !pindex->pprev->IsValid(BLOCK_VALID_TRANSACTIONS)) {
         return error("%s: this block does not connect to any valid known block", __func__);
@@ -3907,6 +3900,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     if (!CheckBlock(block, state, chainparams.GetConsensus()) ||
         !ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
+            LogPrintf("AcceptBlock(): error 105.7 = %s\n", block.GetHash().ToString().c_str());
             pindex->nStatus |= BLOCK_FAILED_VALID;
             setDirtyBlockIndex.insert(pindex);
         }
@@ -3916,6 +3910,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
 
     // PoSV: check PoS
     if (fCheckPoS && !ReddcoinContextualBlockChecks(block, state, pindex, false)) {
+        LogPrintf("AcceptBlock(): error 105.8 = %s\n", block.GetHash().ToString().c_str());
         pindex->nStatus |= BLOCK_FAILED_VALID;
         setDirtyBlockIndex.insert(pindex);
         return state.DoS(100, false, REJECT_INVALID, "bad-pos", false, "proof of stake is incorrect");
@@ -3925,23 +3920,6 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     // (but if it does not build on our best tip, let the SendMessages loop relay it)
     if (!IsInitialBlockDownload() && chainActive.Tip() == pindex->pprev)
         GetMainSignals().NewPoWValidBlock(pindex, pblock);
-
-    // Verify dev transaction of coinstake tx
-    if (block.IsProofOfStake())
-    {
-        // Check that dev fund transactions is correct
-        // Dev fund transactions introduced in version 5 blocks
-        if (block.nVersion >= 5 && 
-            IsSuperMajority(5, pindex->pprev, Params().GetConsensus().nEnforceBlockUpgradeMajority_5))
-        {
-            if (!IsDevTx(*block.vtx[1]))
-            {
-                LogPrintf("WARNING: AcceptBlock(): check proof-of-stake developer address failed for block %s\n", block.GetHash().ToString().c_str());
-                return state.DoS(100, error("AcceptBlock() : contains a incorrect developer transaction"),
-                                                     REJECT_INVALID, "bad-dev-address");
-            }
-        }
-    }
 
     // Write block to history file
     if (fNewBlock) *fNewBlock = true;
@@ -3995,15 +3973,10 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
                 *fPoSDuplicate = true;
             vStakeSeen[ndx] = pindex->hashProof;
         }
+
     }
 
     NotifyHeaderTip();
-            if(pblock != nullptr){
-                const CBlock& Thisblock = *pblock;
-                printf("ProcessNewBlock() block.GetBlockTime= %lu \n",Thisblock.GetBlockTime() );
-                printf("ProcessNewBlock() nTIME= %lu \n", (int64_t)Thisblock.vtx[0]->nTime);
-                printf("ProcessNewBlock() Block: %s \n", Thisblock.ToString().c_str() );
-            }
 
     CValidationState state; // Only used to report errors, not invalidity - ignore it
     if (!g_chainstate.ActivateBestChain(state, chainparams, pblock))

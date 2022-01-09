@@ -299,7 +299,7 @@ public:
         {
             prevoutStake.SetNull();
             nStakeTime = 0;
-        }
+        } 
     }
 
     CDiskBlockPos GetBlockPos() const {
