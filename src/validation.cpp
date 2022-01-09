@@ -1873,7 +1873,7 @@ bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state,
     pindex->SetStakeModifier(nStakeModifier, fGeneratedStakeModifier);
     pindex->hashProof = targetProofOfStake;
 
-    pindex->nStakeModifierChecksum  = GetStakeModifierChecksum(pindex);
+    unsigned int nStakeModifierChecksum  = GetStakeModifierChecksum(pindex);
 
     // undo pindex fields
     pindex->nFlags           = nFlagsBackup;
@@ -1882,11 +1882,8 @@ bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state,
   // compute nStakeModifierChecksum end
     LogPrintf("ReddcoinContextualBlockChecks() nStakeModifierChecksum end: block=%s state=%s \n", block.GetHash().ToString(), state.ToString() );
 
-    if (!CheckStakeModifierCheckpoints(pindex->nHeight, pindex->nStakeModifierChecksum ))
+    if (!CheckStakeModifierCheckpoints(pindex->nHeight, nStakeModifierChecksum ))
         return error("ReddcoinContextualBlockChecks() : Rejected by stake modifier checkpoint height=%d, modifier=0x%016llx", pindex->nHeight, nStakeModifier);
-
-    if (fJustCheck)
-        return true;
 
     // Verify dev transaction of coinstake tx
         if (block.IsProofOfStake())
@@ -1914,6 +1911,9 @@ bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state,
         }
     }
 
+    if (fJustCheck)
+        return true;
+
     // write everything to index
     if (block.IsProofOfStake())
     {
@@ -1921,7 +1921,10 @@ bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state,
         pindex->nStakeTime = block.vtx[1]->nTime;
         pindex->hashProof = targetProofOfStake;
     }
-
+    if (!pindex->SetStakeEntropyBit(nEntropyBit))
+        return error("ConnectBlock() : SetStakeEntropyBit() failed");
+    pindex->SetStakeModifier(nStakeModifier, fGeneratedStakeModifier);
+    pindex->nStakeModifierChecksum = nStakeModifierChecksum;
     setDirtyBlockIndex.insert(pindex);  // queue a write to disk
 
     return true;
@@ -1985,6 +1988,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
 
+    if (pindex->nStakeModifier == 0 && pindex->nStakeModifierChecksum == 0 && !ReddcoinContextualBlockChecks(block, state, pindex, fJustCheck))
+        return error("%s: failed PoS check %s", __func__, FormatStateMessage(state));
 
     // Check it again in case a previous version let a bad block in
     // NOTE: We don't currently (re-)invoke ContextualCheckBlock() or

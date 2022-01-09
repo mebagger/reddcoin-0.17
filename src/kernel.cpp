@@ -215,10 +215,10 @@ bool ComputeNextStakeModifier(const CBlockIndex* pindexPrev, uint64_t& nStakeMod
     const CBlockIndex* pindex = pindexPrev;
     while (pindex && pindex->GetBlockTime() >= nSelectionIntervalStart) {
         vSortedByTimestamp.push_back(make_pair(pindex->GetBlockTime(), pindex->GetBlockHash()));
+        pindex = pindex->pprev;
         if (gArgs.GetBoolArg("-printstakemodifier", false)){
         LogPrintf("ComputeNextStakeModifier: prev EpochTime=%lu time=%s height=%d hash=%s\n", pindex->GetBlockTime(), FormatISO8601DateTime(pindex->GetBlockTime()), pindex->nHeight, pindex->GetBlockHash().ToString());
         }
-        pindex = pindex->pprev;
     }
     int nHeightFirstCandidate = pindex ? (pindex->nHeight + 1) : 0;
     reverse(vSortedByTimestamp.begin(), vSortedByTimestamp.end());
