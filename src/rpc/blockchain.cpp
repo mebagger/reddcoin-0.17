@@ -36,6 +36,8 @@
 
 #include <univalue.h>
 
+#include <pos/kernel.h>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/thread/thread.hpp> // boost::thread::interrupt
 

@@ -29,6 +29,8 @@
 #include <wallet/fees.h>
 #include <wallet/walletutil.h>
 
+#include <pos/kernel.h>
+
 #include <algorithm>
 #include <assert.h>
 #include <future>

@@ -26,6 +26,8 @@
 #include <validationinterface.h>
 #include <warnings.h>
 
+#include <pos/kernel.h>
+
 #include <memory>
 #include <stdint.h>
 

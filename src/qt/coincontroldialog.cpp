@@ -22,6 +22,8 @@
 #include <wallet/fees.h>
 #include <wallet/wallet.h>
 
+#include <pos/kernel.h>
+
 #include <QApplication>
 #include <QCheckBox>
 #include <QCursor>

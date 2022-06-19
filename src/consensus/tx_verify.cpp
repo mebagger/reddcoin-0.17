@@ -9,6 +9,8 @@
 #include <script/interpreter.h>
 #include <consensus/validation.h>
 
+#include <pos/kernel.h>
+
 // TODO remove the following dependencies
 #include <chain.h>
 #include <coins.h>

@@ -41,6 +41,8 @@
 #include <validationinterface.h>
 #include <warnings.h>
 
+#include <pos/kernel.h>
+
 #include <future>
 #include <sstream>
 
