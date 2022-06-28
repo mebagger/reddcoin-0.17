@@ -88,6 +88,9 @@ std::string strSubVersion;
 
 limitedmap<uint256, int64_t> mapAlreadyAskedFor(MAX_INV_SZ);
 
+// POS: temperature to measure how many PoS headers have been sent by this client
+std::map<CNetAddr, int32_t> mapPoSTemperature;
+
 void CConnman::AddOneShot(const std::string& strDest)
 {
     LOCK(cs_vOneShots);
