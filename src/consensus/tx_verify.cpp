@@ -10,6 +10,7 @@
 #include <consensus/validation.h>
 
 #include <pos/kernel.h>
+#include <validation.h>   // GetCoinAge()
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -173,6 +174,8 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     CAmount nValueOut = 0;
     for (const auto& txout : tx.vout)
     {
+        if (txout.IsEmpty() && (!tx.IsCoinBase()) && (!tx.IsCoinStake()))
+            return state.DoS(100, false, REJECT_INVALID, "empty-txout");
         if (txout.nValue < 0)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-negative");
         if (txout.nValue > MAX_MONEY)
@@ -207,7 +210,8 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     return true;
 }
 
-bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee)
+//PoSV
+bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, const Consensus::Params& params, uint64_t nMoneySupply)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -222,11 +226,15 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         assert(!coin.IsSpent());
 
         // If prev is coinbase, check that it's matured
-        if (coin.IsCoinBase() && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {
+        if ((coin.IsCoinBase() || coin.IsCoinStake()) && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {
             return state.Invalid(false,
-                REJECT_INVALID, "bad-txns-premature-spend-of-coinbase",
+                REJECT_INVALID, "bad-txns-premature-spend-of-coinbase/coinstake",
                 strprintf("tried to spend coinbase at depth %d", nSpendHeight - coin.nHeight));
         }
+
+        // PoSV: check transaction timestamp
+        if (coin.nTime > tx.nTime)
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-spent-too-early", false, strprintf("%s : transaction timestamp earlier than input transaction", __func__));
 
         // Check for negative or overflow input values
         nValueIn += coin.out.nValue;
@@ -234,6 +242,20 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
         }
     }
+
+    if (tx.IsCoinStake())
+    {
+        // PoSV: coin stake tx earns reward instead of paying fee
+        uint64_t nCoinAge = 0;
+        if (!GetCoinAge(tx, inputs, nCoinAge))
+            return state.DoS(100, false, REJECT_INVALID, "unable to get coin age for coinstake");
+        //CAmount nStakeReward = tx.GetValueOut() - nValueIn;
+        //CAmount nCoinstakeCost = (GetMinFee(tx) < PERKB_TX_FEE) ? 0 : (GetMinFee(tx) - PERKB_TX_FEE);
+        //if (nMoneySupply && nStakeReward > GetProofOfStakeReward(nCoinAge, tx.nTime, nMoneySupply) - nCoinstakeCost)
+        //    return state.DoS(100, false, REJECT_INVALID, "bad-txns-coinstake-too-large");
+    }
+    else
+    {
 
     const CAmount value_out = tx.GetValueOut();
     if (nValueIn < value_out) {
@@ -248,5 +270,6 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     }
 
     txfee = txfee_aux;
+    }
     return true;
 }

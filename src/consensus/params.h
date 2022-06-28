@@ -89,9 +89,9 @@ struct Params {
     int nToCheckBlockUpgradeMajority_5;
     int nMaxReorganizationDepth;
     
-    uint256 bnProofOfStakeLimit;
-    uint256 bnProofOfStakeReset;
-    int nLastProofOfWorkHeight;
+    uint256 posLimit;
+    uint256 posReset;
+    int nLastPowHeight;
     unsigned int nStakeMinAge;
     unsigned int nStakeMaxAge;
 

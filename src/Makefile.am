@@ -203,6 +203,7 @@ BITCOIN_CORE_H = \
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h \
   zmq/zmqrpc.h \
+  pos/modifiercache.h \
   pos/kernel.h
 
 
@@ -257,6 +258,7 @@ libbitcoin_server_a_SOURCES = \
   validation.cpp \
   validationinterface.cpp \
   versionbits.cpp \
+  pos/modifiercache.cpp \
   pos/kernel.cpp \
   $(BITCOIN_CORE_H)
 

@@ -5,6 +5,7 @@
 
 #include <txdb.h>
 
+#include <index/txindex.h>
 #include <chainparams.h>
 #include <hash.h>
 #include <random.h>
@@ -16,7 +17,10 @@
 
 #include <stdint.h>
 
+#include <validation.h>
 #include <boost/thread.hpp>
+
+using namespace std;
 
 static const char DB_COIN = 'C';
 static const char DB_COINS = 'c';
@@ -274,8 +278,23 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 
-                if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, consensusParams))
-                    return error("%s: CheckProofOfWork failed: %s", __func__, pindexNew->ToString());
+                // PoSV fields
+                pindexNew->nMint          = diskindex.nMint;
+                pindexNew->nMoneySupply   = diskindex.nMoneySupply;
+                pindexNew->nFlags         = diskindex.nFlags;
+                pindexNew->nStakeModifier = diskindex.nStakeModifier;
+                pindexNew->hashProof      = diskindex.hashProof;
+                pindexNew->prevoutStake   = diskindex.prevoutStake;
+                pindexNew->nStakeTime     = diskindex.nStakeTime;
+
+                // Reddcoin: Disable PoW Sanity check while loading block index from disk.
+                // We use the sha256 hash for the block index for performance reasons, which is recorded for later use.
+                // CheckProofOfWork() uses the scrypt hash which is discarded after a block is accepted.
+                // While it is technically feasible to verify the PoW, doing so takes several minutes as it
+                // requires recomputing every PoW hash during every Reddcoin startup.
+                // We opt instead to simply trust the data that is on your local disk.
+                //if (pindexNew->GetBlockTime() > CHECK_POW_FROM_NTIME && pindexNew->IsProofOfWork() && !CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, consensusParams))
+                //    return error("%s: CheckProofOfWork failed: Height=%d", __func__, pindexNew->nHeight);
 
                 pcursor->Next();
             } else {
@@ -303,6 +322,12 @@ public:
 
     //! at which height this transaction was included in the active block chain
     int nHeight;
+
+    // PoSV ??: whether transaction is a coinstake
+    bool fCoinStake;
+
+    // PoSV ??: transaction timestamp
+    unsigned int nTime;
 
     //! empty constructor
     CCoins() : fCoinBase(false), vout(0), nHeight(0) { }
@@ -387,7 +412,7 @@ bool CCoinsViewDB::Upgrade() {
             COutPoint outpoint(key.second, 0);
             for (size_t i = 0; i < old_coins.vout.size(); ++i) {
                 if (!old_coins.vout[i].IsNull() && !old_coins.vout[i].scriptPubKey.IsUnspendable()) {
-                    Coin newcoin(std::move(old_coins.vout[i]), old_coins.nHeight, old_coins.fCoinBase);
+                    Coin newcoin(std::move(old_coins.vout[i]), old_coins.nHeight, old_coins.fCoinBase, old_coins.fCoinStake, old_coins.nTime);
                     outpoint.n = i;
                     CoinEntry entry(&outpoint);
                     batch.Write(entry, newcoin);

@@ -12,6 +12,14 @@
 #include <serialize.h>
 #include <uint256.h>
 
+#include <version.h>
+
+// PoSV
+// nTime field added to CTransaction
+// vchBlockSig field added to CBlock
+static const int POW_TX_VERSION = 1;
+static const int POW_BLOCK_VERSION = 2;
+
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
@@ -160,6 +168,17 @@ public:
         return (nValue == -1);
     }
 
+    void SetEmpty()
+    {
+        nValue = 0;
+        scriptPubKey.clear();
+    }
+
+    bool IsEmpty() const
+    {
+        return (nValue == 0 && scriptPubKey.empty());
+    }
+
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nValue       == b.nValue &&
@@ -226,6 +245,15 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
         throw std::ios_base::failure("Unknown transaction optional data");
     }
     s >> tx.nLockTime;
+    //PoSV
+    if (tx.nVersion > POW_TX_VERSION)
+    {
+            
+        s >> tx.nTime;
+    }else
+    {
+			*const_cast<uint32_t*>(&tx.nTime) = 0;
+	}
 }
 
 template<typename Stream, typename TxType>
@@ -255,6 +283,11 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
         }
     }
     s << tx.nLockTime;
+        //PoSV
+    if (tx.nVersion > POW_TX_VERSION ) 
+    {       
+        s << tx.nTime;
+    }
 }
 
 
@@ -282,6 +315,7 @@ public:
     const std::vector<CTxOut> vout;
     const int32_t nVersion;
     const uint32_t nLockTime;
+    const uint32_t nTime;
 
 private:
     /** Memory only. */
@@ -294,6 +328,7 @@ private:
 public:
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction();
+    CTransaction(int64_t nTime);
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
@@ -330,7 +365,13 @@ public:
 
     bool IsCoinBase() const
     {
-        return (vin.size() == 1 && vin[0].prevout.IsNull());
+        return (vin.size() == 1 && vin[0].prevout.IsNull() && vout.size() >= 1);
+    }
+
+    bool IsCoinStake() const
+    {
+        // PoSV: the coin stake transaction is marked with the first output empty
+        return (vin.size() > 0 && (!vin[0].prevout.IsNull()) && vout.size() >= 2 && vout[0].IsEmpty());
     }
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
@@ -363,8 +404,10 @@ struct CMutableTransaction
     std::vector<CTxOut> vout;
     int32_t nVersion;
     uint32_t nLockTime;
+    uint32_t nTime;
 
     CMutableTransaction();
+    CMutableTransaction(uint32_t nTime);
     explicit CMutableTransaction(const CTransaction& tx);
 
     template <typename Stream>

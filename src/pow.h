@@ -12,6 +12,8 @@
 
 class CBlockHeader;
 class CBlockIndex;
+
+class arith_uint256;
 class uint256;
 
 const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfStake);
@@ -19,6 +21,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
 
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
-bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&);
+bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params);
+bool CheckProofOfWork(arith_uint256 hash, unsigned int nBits, const Consensus::Params& params);
 
 #endif // BITCOIN_POW_H
