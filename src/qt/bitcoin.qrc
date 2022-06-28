@@ -54,6 +54,17 @@
         <file alias="hd_disabled">res/icons/hd_disabled.png</file>
         <file alias="network_disabled">res/icons/network_disabled.png</file>
         <file alias="proxy">res/icons/proxy.png</file>
+        <file alias="unit_rdd">res/icons/unit_rdd.png</file>
+        <file alias="unit_mrdd">res/icons/unit_mrdd.png</file>
+        <file alias="unit_urdd">res/icons/unit_urdd.png</file>
+        <file alias="bitcoin_testnet">res/icons/bitcoin_testnet.png</file>
+        <file alias="staking_off">res/icons/staking_off.png</file>
+        <file alias="staking_on">res/icons/staking_on.png</file>
+    </qresource>
+    <qresource prefix="/images">
+        <file alias="about">res/images/about.png</file>
+        <file alias="splash">res/images/splash.png</file>
+        <file alias="splash_testnet">res/images/splash_testnet.png</file>
     </qresource>
     <qresource prefix="/movies">
         <file alias="spinner-000">res/movies/spinner-000.png</file>
