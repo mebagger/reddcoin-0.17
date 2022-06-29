@@ -549,17 +549,17 @@ uint64_t GetCoinAge(const CTransaction& tx)
 
         int64_t nValueIn = txPrev.vout[txin.prevout.n].nValue;
         int64_t nTimeWeight = GetCoinAgeWeight(txPrev.nTime, tx.nTime);
-        bnCentSecond += nValueIn * nTimeWeight / CENT;
+        bnCentSecond += arith_uint256(nValueIn) * nTimeWeight / CENT;
 
-        if (gArgs.GetBoolArg("-debug", false) && gArgs.GetBoolArg("-printcoinage", false))
+        if (gArgs.GetBoolArg("-printcoinage", false))
             LogPrintf("coin age nValueIn=%s nTime=%d, txPrev.nTime=%d, nTimeWeight=%s bnCentSecond=%s\n",
                       nValueIn, tx.nTime, txPrev.nTime, nTimeWeight, bnCentSecond.ToString().c_str());
     }
 
     arith_uint256 bnCoinDay = bnCentSecond * CENT / COIN / (24 * 60 * 60);
-    if (gArgs.GetBoolArg("-debug", false) && gArgs.GetBoolArg("-printcoinage", false))
+    if (gArgs.GetBoolArg("-printcoinage", false))
         LogPrintf("coin age bnCoinDay=%s\n", bnCoinDay.ToString().c_str());
-    nCoinAge = bnCoinDay.GetLow64();
+    nCoinAge = ArithToUint256(bnCoinDay).GetUint64(0);
     return nCoinAge;
 }
 
@@ -571,7 +571,7 @@ uint64_t GetCoinAge(const CBlock& block)
     for (const auto& tx : block.vtx)
         nCoinAge += GetCoinAge(*tx);
 
-    if (gArgs.GetBoolArg("-debug", false) && gArgs.GetBoolArg("-printcoinage", false))
+    if (gArgs.GetBoolArg("-printcoinage", false))
         LogPrintf("block coin age total nCoinDays=%s\n", nCoinAge);
     return nCoinAge;
 }
@@ -695,7 +695,7 @@ bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned int nRe
     return (nFound >= nRequired);
 }
 
-// peercoin: entropy bit for stake modifier if chosen by modifier
+// POSV: entropy bit for stake modifier if chosen by modifier
 unsigned int GetStakeEntropyBit(const CBlock& block)
     {
         // Take last bit of block hash as entropy bit
