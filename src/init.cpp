@@ -29,6 +29,8 @@
 #include <policy/feerate.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
+#include <pos/signer.h>
+#include <pos/stake.h>
 #include <pos/kernel.h>
 #include <pos/modifiercache.h>
 #include <rpc/server.h>
@@ -204,6 +206,9 @@ void Shutdown()
     StopREST();
     StopRPC();
     StopHTTPServer();
+    #ifdef ENABLE_WALLET
+    StopMintStake();
+    #endif
     g_wallet_init_interface.Flush();
     StopMapPort();
 
@@ -1763,6 +1768,13 @@ bool AppInitMain()
     cacheInit();
 
     g_wallet_init_interface.Start(scheduler);
+
+    #ifdef ENABLE_WALLET
+    if (GetWallets()[0]) {
+        gArgs.ForceSetArg("-staking", "1");
+        StartMintStake(gArgs.GetBoolArg("-staking", true), GetWallets()[0]);
+    }
+    #endif
 
     return true;
 }

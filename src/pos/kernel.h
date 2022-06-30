@@ -25,7 +25,7 @@ bool ComputeNextStakeModifier(const CBlockIndex* pindexPrev, uint64_t& nStakeMod
 
 // Check whether stake kernel meets hash target
 // Sets hashProofOfStake on success return
-bool CheckStakeKernelHash(unsigned int nBits, const CBlockHeader& blockFrom, unsigned int nTxPrevOffset, const CTransactionRef& txPrev, const COutPoint& prevout, unsigned int nTimeTx, uint256& hashProofOfStake, uint256& targetProofOfStake, bool fPrintProofOfStake = false);
+bool CheckStakeKernelHash(unsigned int nBits, const CBlockHeader& blockFrom, unsigned int nTxPrevOffset, const CTransactionRef& txPrev, const COutPoint& prevout, unsigned int nTimeTx, uint256& hashProofOfStake, bool fPrintProofOfStake = false);
 
 // Check kernel hash target and coinstake signature
 // Sets hashProofOfStake on success return
@@ -60,5 +60,10 @@ bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned int nRe
 
 // PoSV: entropy bit for stake modifier if chosen by modifier
 unsigned int GetStakeEntropyBit(const CBlock& block);
+
+/**
+ * Get the POSV kernel of the net wrt to the given block index.
+ */
+double GetPoSVKernelPS(const CBlockIndex* blockindex);
 
 #endif // REDDCOIN_KERNEL_H

@@ -10,6 +10,7 @@
 #include <limits>
 #include <map>
 #include <string>
+#include <script/script.h>
 
 namespace Consensus {
 
@@ -89,11 +90,12 @@ struct Params {
     int nToCheckBlockUpgradeMajority_5;
     int nMaxReorganizationDepth;
     
+    std::vector<CScript> devScript;
     uint256 posLimit;
     uint256 posReset;
     int nLastPowHeight;
-    unsigned int nStakeMinAge;
-    unsigned int nStakeMaxAge;
+    int64_t nStakeMinAge;
+    int64_t nStakeMaxAge;
 
 };
 } // namespace Consensus

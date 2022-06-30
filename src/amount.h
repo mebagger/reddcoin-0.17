@@ -14,6 +14,9 @@ typedef int64_t CAmount;
 static const CAmount COIN = 100000000;
 static const CAmount CENT = 1000000;
 
+static const CAmount MIN_TX_FEE = CENT / 10;
+static const CAmount PERKB_TX_FEE = CENT;
+
 /** No amount larger than this (in satoshi) is valid.
  *
  * Note that this constant is *not* the total money supply, which in Bitcoin

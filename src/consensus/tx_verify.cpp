@@ -273,3 +273,17 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     }
     return true;
 }
+
+CAmount GetMinFee(size_t nBytes, uint32_t nTime)
+{
+    CAmount nMinFee = (1 + (CAmount)nBytes / 1000) * PERKB_TX_FEE;
+    if (!MoneyRange(nMinFee))
+        nMinFee = MAX_MONEY;
+    return nMinFee;
+}
+
+CAmount GetMinFee(const CTransaction& tx)
+{
+    size_t nBytes = ::GetSerializeSize(tx, PROTOCOL_VERSION);
+    return GetMinFee(nBytes, tx.nTime);
+}

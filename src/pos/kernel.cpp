@@ -17,6 +17,7 @@
 #include <pos/modifiercache.h>
 #include <random.h>
 #include <script/interpreter.h>
+#include <rpc/blockchain.h>
 
 #include <arith_uint256.h>
 #include <uint256.h>
@@ -704,3 +705,17 @@ unsigned int GetStakeEntropyBit(const CBlock& block)
             LogPrintf("GetStakeEntropyBit: hashBlock=%s nEntropyBit=%u\n", block.GetHash().ToString().c_str(), nEntropyBit);
         return nEntropyBit;
     }
+
+/* Calculate PoSV Kernel
+ */
+double GetPoSVKernelPS(const CBlockIndex* blockindex)
+{
+    const Consensus::Params params = Params().GetConsensus();
+
+    if (blockindex == NULL || blockindex->nHeight <= params.nLastPowHeight || blockindex->IsProofOfWork())
+        return 0;
+
+    double dStakeKernelsTriedAvg = GetDifficulty(blockindex) * 4294967296.0; // 2^32
+    return dStakeKernelsTriedAvg / params.nPowTargetSpacing;
+}
+
