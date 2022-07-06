@@ -15,6 +15,8 @@
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>
+#include <pos/kernel.h>
+#include <pos/stake.h>
 #include <pow.h>
 #include <rpc/blockchain.h>
 #include <rpc/mining.h>
@@ -26,7 +28,7 @@
 #include <validationinterface.h>
 #include <warnings.h>
 
-#include <pos/kernel.h>
+
 
 #include <memory>
 #include <stdint.h>
@@ -52,7 +54,7 @@ static UniValue GetNetworkHashPS(int lookup, int height) {
     if (height >= 0 && height < chainActive.Height())
         pb = chainActive[height];
 
-    if (pb == nullptr || !pb->nHeight)
+    if (pb == nullptr || !pb->nHeight || pb->nHeight > Params().GetConsensus().nLastPowHeight)
         return 0;
 
     // If lookup is -1, then use blocks since last difficulty change.
@@ -220,6 +222,127 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("networkhashps",    getnetworkhashps(request));
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     obj.pushKV("chain",            Params().NetworkIDString());
+    obj.pushKV("warnings",         GetWarnings("statusbar"));
+    return obj;
+}
+
+static UniValue staking_enable(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "staking_enable\n"
+            "\nsets the current staking configuration to enables staking."
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("staking_enable", "")
+            + HelpExampleRpc("staking_enable", "")
+        );
+
+
+    LOCK(cs_main);
+    std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
+
+    bool fGenerate = true;
+    if (fGenerate) {
+        gArgs.ForceSetArg("-staking", fGenerate ? "1" : "0");
+
+        StartMintStake(gArgs.GetBoolArg("-staking", true), pwallet);
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("generate", fGenerate);
+    return result;
+}
+
+static UniValue staking_disable(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "staking_disable\n"
+            "\nsets the current staking configuration to disable staking."
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("staking_disable", "")
+            + HelpExampleRpc("staking_disable", "")
+        );
+
+
+    bool fGenerate = false;
+
+    gArgs.ForceSetArg("-staking", fGenerate ? "1" : "0");
+    StopMintStake();
+
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("generate", fGenerate);
+    return result;
+}
+
+
+static UniValue getstakinginfo(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "getmininginfo\n"
+            "\nReturns a json object containing mining-related information."
+            "\nResult:\n"
+            "{\n"
+            "  \"enabled\": nnn,             (boolean) If staking enabled or not\n"
+            "  \"staking\": nnn,             (boolean) If currently staking\n"
+            "  \"chain\": nnn,              (string) current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"blocks\": nnn,             (numeric) The current block\n"
+            "  \"currentblockweight\": nnn, (numeric) The last block weight\n"
+            "  \"currentblocktx\": nnn,     (numeric) The last block transaction\n"
+            "  \"difficulty\": xxx.xxxxx    (numeric) The current difficulty\n"
+            "  \"networkhashps\": nnn,      (numeric) The network hashes per second\n"
+            "  \"pooledtx\": n              (numeric) The size of the mempool\n"
+            "  \"search-interval\": \"xxxx\",           (numeric) last search interval\n"
+            "  \"averageweight\": \"xxxx\",           (numeric) the average staking weight\n"
+            "  \"totalweight\": \"xxxx\",           (numeric) the total staking weight\n"
+            "  \"netstakeweight\": \"xxxx\",           (numeric) the network staking weight\n"
+            "  \"expectedtime\": \"xxxx\",           (numeric) approximate time till next stake\n"
+            "  \"warnings\": \"...\"          (string) any network and blockchain warnings\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getstakinginfo", "")
+            + HelpExampleRpc("getstakinginfo", "")
+        );
+
+
+    LOCK(cs_main);
+
+    std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!pwallet) return NullUniValue;
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    uint64_t nAverageWeight = 0, nTotalWeight = 0;
+
+    GetStakeWeight(pwallet.get(), nAverageWeight, nTotalWeight, Params().GetConsensus());
+
+    uint64_t nNetworkWeight = GetPoSVKernelPS(chainActive.Tip());
+
+    bool staking = nLastCoinStakeSearchInterval && nAverageWeight;
+    uint64_t nExpectedTime = 0;
+    if (nTotalWeight) nExpectedTime = Params().GetConsensus().nPowTargetSpacing * nNetworkWeight / nTotalWeight;
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("enabled",          gArgs.GetBoolArg("-staking", true));
+    obj.pushKV("staking",          staking);
+    obj.pushKV("chain",            Params().NetworkIDString());
+    obj.pushKV("blocks",           (int)chainActive.Height());
+    obj.pushKV("currentblockweight", (uint64_t)nLastBlockWeight);
+    obj.pushKV("currentblocktx", (uint64_t)nLastBlockTx);
+    obj.pushKV("difficulty",       (double)GetDifficulty(chainActive.Tip()));
+    obj.pushKV("networkhashps",    getnetworkhashps(request));
+    obj.pushKV("pooledtx",         (uint64_t)mempool.size());
+    obj.pushKV("search-interval",  (int)nLastCoinStakeSearchInterval);
+    obj.pushKV("averageweight",    (uint64_t)nAverageWeight);
+    obj.pushKV("totalweight",      (uint64_t)nTotalWeight);
+    obj.pushKV("netstakeweight",   (uint64_t)nNetworkWeight);
+    obj.pushKV("expectedtime",     (uint64_t)nExpectedTime);
     obj.pushKV("warnings",         GetWarnings("statusbar"));
     return obj;
 }
@@ -939,6 +1062,9 @@ static const CRPCCommand commands[] =
   //  --------------------- ------------------------  -----------------------  ----------
     { "mining",             "getnetworkhashps",       &getnetworkhashps,       {"nblocks","height"} },
     { "mining",             "getmininginfo",          &getmininginfo,          {} },
+    { "mining",             "getstakinginfo",          &getstakinginfo,          {} },
+    { "mining",             "staking_enable",          &staking_enable,          {} },
+    { "mining",             "staking_disable",          &staking_disable,          {} },
     { "mining",             "prioritisetransaction",  &prioritisetransaction,  {"txid","dummy","fee_delta"} },
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
     { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
