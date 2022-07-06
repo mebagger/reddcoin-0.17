@@ -277,6 +277,7 @@ public:
 
     const uint256& GetHash() const { return tx->GetHash(); }
     bool IsCoinBase() const { return tx->IsCoinBase(); }
+    bool IsCoinStake() const { return tx->IsCoinStake(); }
 };
 
 //Get the marginal bytes of spending the specified output
@@ -685,6 +686,10 @@ private:
     int64_t nNextResend = 0;
     int64_t nLastResend = 0;
     bool fBroadcastTransactions = false;
+    /** optional setting to unlock wallet for staking only
+     * serves to disable the trivial sendmoney when OS account compromised
+     * provides no real security */
+    bool fWalletUnlockStakingOnly = false;
 
     /**
      * Used to keep track of spent outpoints, and
@@ -956,9 +961,11 @@ public:
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime, CConnman* connman);
     CAmount GetBalance(const isminefilter& filter=ISMINE_SPENDABLE, const int min_depth=0) const;
     CAmount GetUnconfirmedBalance() const;
+    CAmount GetStakeBalance() const;
     CAmount GetImmatureBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;
     CAmount GetImmatureWatchOnlyBalance() const;
+    CAmount GetStakeWatchOnlyBalance() const;
     CAmount GetLegacyBalance(const isminefilter& filter, int minDepth, const std::string* account) const;
     CAmount GetAvailableBalance(const CCoinControl* coinControl = nullptr) const;
 
@@ -1128,6 +1135,11 @@ public:
     bool GetBroadcastTransactions() const { return fBroadcastTransactions; }
     /** Set whether this wallet broadcasts transactions. */
     void SetBroadcastTransactions(bool broadcast) { fBroadcastTransactions = broadcast; }
+
+    /** Inquire whether this wallet unlocked for staking only. */
+    bool IsStakingOnly() const { return fWalletUnlockStakingOnly; }
+    /** Set whether this wallet unlocked for staking only. */
+    void SetIsStakingOnly(bool stakingOnly) { fWalletUnlockStakingOnly = stakingOnly; }
 
     /** Return whether transaction can be abandoned */
     bool TransactionCanBeAbandoned(const uint256& hashTx) const;

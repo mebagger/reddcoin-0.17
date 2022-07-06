@@ -2142,6 +2142,21 @@ CAmount CWallet::GetUnconfirmedBalance() const
     return nTotal;
 }
 
+CAmount CWallet::GetStakeBalance() const
+{
+    CAmount nTotal = 0;
+    {
+        LOCK2(cs_main, cs_wallet);
+        for (const auto& entry : mapWallet)
+        {
+            const CWalletTx* pcoin = &entry.second;
+            if (pcoin->IsCoinStake() && pcoin->GetBlocksToMaturity() > 0 && pcoin->GetDepthInMainChain() > 0)
+                nTotal += pcoin->GetAvailableCredit(true, ISMINE_SPENDABLE);
+        }
+    }
+    return nTotal;
+}
+
 CAmount CWallet::GetImmatureBalance() const
 {
     CAmount nTotal = 0;
@@ -2180,6 +2195,21 @@ CAmount CWallet::GetImmatureWatchOnlyBalance() const
         {
             const CWalletTx* pcoin = &entry.second;
             nTotal += pcoin->GetImmatureWatchOnlyCredit();
+        }
+    }
+    return nTotal;
+}
+
+CAmount CWallet::GetStakeWatchOnlyBalance() const
+{
+    CAmount nTotal = 0;
+    {
+        LOCK2(cs_main, cs_wallet);
+        for (const auto& entry : mapWallet)
+        {
+            const CWalletTx* pcoin = &entry.second;
+            if (pcoin->IsCoinStake() && pcoin->GetBlocksToMaturity() > 0 && pcoin->GetDepthInMainChain() > 0)
+                nTotal += pcoin->GetAvailableCredit(true, ISMINE_WATCH_ONLY);
         }
     }
     return nTotal;
