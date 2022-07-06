@@ -415,6 +415,7 @@ bool CheckStakeKernelHash(unsigned int nBits, const CBlockHeader& blockFrom, uns
 
     // Now check if proof-of-stake hash meets target protocol
     if (hashProof > targetProof){
+        if (gArgs.GetBoolArg("-printstakemodifier", false))
         LogPrintf("ERROR: %s hashProof=%d > targetProof=%d \n",__func__, hashProof.GetCompact(), targetProof.GetCompact());
         return false;
     }else
