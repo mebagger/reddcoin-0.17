@@ -323,10 +323,10 @@ public:
     //! at which height this transaction was included in the active block chain
     int nHeight;
 
-    // PoSV ??: whether transaction is a coinstake
+    // PoSV: whether transaction is a coinstake
     bool fCoinStake;
 
-    // PoSV ??: transaction timestamp
+    // PoSV: transaction timestamp
     unsigned int nTime;
 
     //! empty constructor

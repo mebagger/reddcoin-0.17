@@ -11,6 +11,7 @@
 #include <policy/feerate.h>
 #include <streams.h>
 #include <tinyformat.h>
+#include <txdb.h>
 #include <ui_interface.h>
 #include <utilstrencodings.h>
 #include <validationinterface.h>
