@@ -2190,7 +2190,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             double fInflationAdjustment = GetInflationAdjustment(pindex->pprev);
 
             nCalculatedStakeReward = GetProofOfStakeReward(nCoinAge, nFees, fInflationAdjustment);
-            //if (gArgs.GetBoolArg("-printstakemodifier", false))
+            if (gArgs.GetBoolArg("-printstakemodifier", false))
                 LogPrintf("%s : nCoinAge=%d nFees=%d fInflationAdjustment=%d nCalculatedStakeReward2=%.2f block=%s\n", __func__, nCoinAge, nFees, fInflationAdjustment, nCalculatedStakeReward, block.GetHash().ToString());
 
             if (!IsDevTx(*block.vtx[1], chainparams.GetConsensus())) {
