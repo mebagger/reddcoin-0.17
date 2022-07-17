@@ -423,7 +423,7 @@ bool CheckStakeKernelHash(unsigned int nBits, const CBlockHeader& blockFrom, uns
 }
 
 // Check kernel hash target and coinstake signature
-bool CheckProofOfStake(const CTransactionRef& tx, unsigned int nBits, uint256& hashProofOfStake)
+bool CheckProofOfStake(CValidationState &state, const CTransactionRef& tx, unsigned int nBits, uint256& hashProofOfStake)
 {
     if (!tx->IsCoinStake())
         return error("CheckProofOfStake() : called on non-coinstake %s \n", tx->GetHash().ToString().c_str());
@@ -464,12 +464,14 @@ bool CheckProofOfStake(const CTransactionRef& tx, unsigned int nBits, uint256& h
         TransactionSignatureChecker checker(&(*tx), nIn, prevOut.nValue, PrecomputedTransactionData(*tx));
 
         if (!VerifyScript(tx->vin[nIn].scriptSig, prevOut.scriptPubKey, &(tx->vin[nIn].scriptWitness), SCRIPT_VERIFY_P2SH, checker, nullptr))
-            return error("%s: VerifyScript failed on coinstake %s", __func__, tx->GetHash().ToString());
+            return state.DoS(100, false, REJECT_INVALID, "invalid-pos-script", false, strprintf("%s: VerifyScript failed on coinstake %s", __func__, tx->GetHash().ToString()));
+            //return error("%s: VerifyScript failed on coinstake %s", __func__, tx->GetHash().ToString());
     }
 
     if (!CheckStakeKernelHash(nBits, header, txin.prevout.n, txPrev, txin.prevout, tx->nTime, hashProofOfStake, gArgs.GetBoolArg("-printstakemodifier", false))){
-        LogPrintf("WARNING: %s check kernel failed on coinstake %s, hashProof=%s",__func__, tx->GetHash().ToString().c_str(), hashProofOfStake.ToString().c_str()); // may occur during initial download or if behind on block chain sync
-        return false;
+        //LogPrintf("WARNING: %s check kernel failed on coinstake %s, hashProof=%s",__func__, tx->GetHash().ToString().c_str(), hashProofOfStake.ToString().c_str()); // may occur during initial download or if behind on block chain sync
+        //return false;
+        return state.DoS(1, error("CheckProofOfStake() : INFO: check kernel failed on coinstake %s, hashProof=%s", tx->GetHash().ToString(), hashProofOfStake.ToString())); // may occur during initial download or if behind on block chain sync
     }
 
     return true;
@@ -608,8 +610,8 @@ double GetInflation(const CBlockIndex* pindex)
 
 	nPoSVRewards = nMoneySupply - nMoneySupplyPrev;
 	nInflation = (double(nPoSVRewards) / double(nMoneySupply)) * 12 * 100;
-
-	LogPrintf("inflation - Block rewards in last interval = %s. Inflation1 = %s\n", FormatMoney(nPoSVRewards), nInflation);
+    if (gArgs.GetBoolArg("-printstakemodifier", false))
+	    LogPrintf("inflation - Block rewards in last interval = %s. Inflation1 = %s\n", FormatMoney(nPoSVRewards), nInflation);
 
 	return nInflation;
 }
@@ -651,22 +653,25 @@ double GetInflationAdjustment(const CBlockIndex* pindex)
 
     double nRatio = (double(nMoneySupply) / double(nPoSVRewards));
     double nRawInflationAdjustment = ((nInflationTarget / 12) * nRatio); // looking at the last month of blocks
+    
+    if (gArgs.GetBoolArg("-printstakemodifier", false))
+        LogPrintf("inflation - Block rewards in last interval = %s. Inflation2 = %s\n", FormatMoney(nPoSVRewards), GetInflation(pindex));
 
-    LogPrintf("inflation - Block rewards in last interval = %s. Inflation2 = %s\n", FormatMoney(nPoSVRewards), GetInflation(pindex));
+    double nInflationAdjustment = std::max(std::min(nRawInflationAdjustment, dMaxThreshold), dMinThreshold);
 
-    double nInflationAdjustment = max(min(nRawInflationAdjustment, dMaxThreshold), dMinThreshold);
-
-	LogPrintf("inflation - Inflation Adjustment (Bounded) = %s. Using Max %s | Min %s thresholds\n", nInflationAdjustment, dMaxThreshold, dMinThreshold);
+    if (gArgs.GetBoolArg("-printstakemodifier", false))
+	    LogPrintf("inflation - Inflation Adjustment (Bounded) = %s. Using Max %s | Min %s thresholds\n", nInflationAdjustment, dMaxThreshold, dMinThreshold);
 
     int64_t nTime = GetTimeMicros() - nStart;
-    LogPrintf("bench - Inflation Unbound Adjustment = %s Using last %s blocks from height %s to height %s: %.2fms\n", nRawInflationAdjustment, nBlocksPerMonth, nHeightPrev, pindex->nHeight, nTime * 0.001);
+    if (gArgs.GetBoolArg("-printstakemodifier", false))
+        LogPrintf("bench - Inflation Unbound Adjustment = %s Using last %s blocks from height %s to height %s: %.2fms\n", nRawInflationAdjustment, nBlocksPerMonth, nHeightPrev, pindex->nHeight, nTime * 0.001);
 
     return nInflationAdjustment;
 }
 
 bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned int nRequired)
 {
-    unsigned int nToCheck;
+    unsigned int nToCheck = 0;
     if (minVersion == 3)
     {
     	nToCheck = Params().GetConsensus().nToCheckBlockUpgradeMajority;
@@ -680,20 +685,12 @@ bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned int nRe
     	nToCheck = Params().GetConsensus().nToCheckBlockUpgradeMajority_5;
     }
     unsigned int nFound = 0;
-    for (unsigned int i = 0; i < nToCheck && nFound < nRequired && pstart != NULL; pstart = pstart->pprev )
-    {
-        if (!pstart->IsProofOfStake())
-            continue;
-
+    for (unsigned int i = 0; i < nToCheck && nFound < nRequired && pstart != nullptr; i++) {
         if (pstart->nVersion >= minVersion)
             ++nFound;
+        pstart = pstart->pprev;
+    }
 
-        i++;
-    }
-    if ((gArgs.GetBoolArg("-debug", false)) && (gArgs.GetBoolArg("-printsuper", false)))
-    {
-    LogPrintf("super IsSuperMajority(): Height=%d Version=%s block: %s found of %s required in last %s blocks.\n",pstart->nHeight, minVersion, nFound, nRequired, nToCheck);
-    }
     return (nFound >= nRequired);
 }
 

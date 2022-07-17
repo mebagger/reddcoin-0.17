@@ -47,7 +47,7 @@ struct PrecomputedTransactionData;
 struct LockPoints;
 
 /** Start checking POW after block 44877 http://live.reddcoin.com/block/4253e7618d40aded00d11b664e874245ae74d55b976f4ac087d1a9db2f5f3cda */
-static const int64_t CHECK_POW_FROM_NTIME = 1394048078;  //UpdateMe 
+static const int64_t CHECK_POW_FROM_NTIME = 1394048078;  
 
 static const int64_t COIN_YEAR_REWARD = 5 * CENT; // 5% per year
 
@@ -87,7 +87,7 @@ static const int MAX_SCRIPTCHECK_THREADS = 16;
 /** -par default (number of script-checking threads, 0 = auto) */
 static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
 /** Number of blocks that can be requested at any given time from a single peer. */
-static const int MAX_BLOCKS_IN_TRANSIT_PER_PEER = 64;
+static const int MAX_BLOCKS_IN_TRANSIT_PER_PEER = 128;
 /** Timeout in seconds during which a peer must stall block download progress before being disconnected. */
 static const unsigned int BLOCK_STALLING_TIMEOUT = 2;
 /** Number of headers sent in one getheaders result. We rely on the assumption that if a peer sends
@@ -508,7 +508,7 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 bool GetCoinAge(const CTransaction& tx, const CCoinsViewCache &view, uint64_t& nCoinAge, bool isTrueCoinAge = true); // PoSV: get transaction coin age
 CAmount GetProofOfStakeReward(int64_t nCoinAge, const CAmount& nFees);
 CAmount GetProofOfStakeReward(int64_t nCoinAge, const CAmount& nFees, double fInflationAdjustment);
-bool VerifyHashTarget(CBlockIndex* pindexPrev, const CBlock& block, uint256& hashProof);
+bool VerifyHashTarget(CValidationState& state, CBlockIndex* pindexPrev, const CBlock& block, uint256& hashProof);
 bool ReddcoinContextualBlockChecks(const CBlock& block, CValidationState& state, CBlockIndex* pindex, bool fJustCheck);
 
 #endif // BITCOIN_VALIDATION_H

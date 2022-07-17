@@ -191,12 +191,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         int64_t nSearchTime = txCoinStake.nTime; // search to current time
         if (nSearchTime > nLastCoinStakeSearchTime)
         {  
-            if (CreateCoinStake(pwallet, pblock->nBits, nSearchTime-nLastCoinStakeSearchTime, txCoinStake, chainparams.GetConsensus(), nFees)) // UpdateMe , const CAmount& nFees
+            if (CreateCoinStake(pwallet, pblock->nBits, nSearchTime-nLastCoinStakeSearchTime, txCoinStake, chainparams.GetConsensus(), nFees)) 
             {  
                 if (txCoinStake.nTime >= std::max(pindexPrev->GetMedianTimePast()+1, pindexPrev->GetBlockTime() - MAX_FUTURE_STAKE_TIME))
                 {   // make sure coinstake would meet timestamp protocol
                     // as it would be the same as the block timestamp
-                    coinbaseTx.vout[0].SetEmpty();   // UpdateMe  nFees just got burned here lets add them in the coinstake
+                    coinbaseTx.vout[0].SetEmpty();   
                     coinbaseTx.nTime = txCoinStake.nTime;
                     pblock->vtx.insert(pblock->vtx.begin() + 1, MakeTransactionRef(CTransaction(txCoinStake)));
                     *pfPoSCancel = false;
@@ -521,7 +521,8 @@ static bool ProcessBlockFound(const CBlock* pblock,  const CChainParams& chainpa
     }
 
     // verify hash target and signature of coinstake tx
-    if (!CheckProofOfStake(pblock->vtx[1], pblock->nBits, hashStake))
+    CValidationState state;
+    if (!CheckProofOfStake(state, pblock->vtx[1], pblock->nBits, hashStake))
         return error("ProcessBlockFound() : proof-of-stake checking failed");
 
 
@@ -594,18 +595,20 @@ void PoSMiner(std::shared_ptr<CWallet> pwallet)
             // Busy-wait for the network to come online so we don't waste time mining
             // on an obsolete chain. In regtest mode we expect to fly solo.
             while(g_connman == nullptr || g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0 || IsInitialBlockDownload()) {  
-                LogPrintf("PoSMiner(): sleeping for 5 \n" );   
-                MilliSleep(5 * 1000);   
+                LogPrintf("PoSMiner(): sleeping for 30sec \n" );   
+                MilliSleep(30 * 1000);
+                return;   
             }
 
             while (chainActive.Tip()->nHeight < Params().GetConsensus().nLastPowHeight)
             {
-                LogPrintf("Minter thread sleeps while sync at %d\n", chainActive.Tip()->nHeight );
+                LogPrintf("Minter thread sleeps for 30sec while sync at %d\n", chainActive.Tip()->nHeight );
                 if (strMintWarning != strMintSyncMessage) {
                     strMintWarning = strMintSyncMessage;
                 }
                 fNeedToClear = true;
-                MilliSleep(10000);
+                MilliSleep(30 * 1000);
+                return;
             }
             if (fNeedToClear) {
                 strMintWarning = strMintEmpty;

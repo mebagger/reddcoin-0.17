@@ -308,18 +308,17 @@ bool CreateCoinStake(const CWallet* pwallet, unsigned int nBits, int64_t nSearch
         CAmount nReward = 0;
         if(CTransaction::CURRENT_VERSION >= 2){
         double fInflationAdjustment = GetInflationAdjustment(chainActive.Tip());
-        nReward = GetProofOfStakeReward(nCoinAge, nFees, /*fInflationAdjustment*/ 0); // UpdateMe 
+        nReward = GetProofOfStakeReward(nCoinAge, nFees, fInflationAdjustment);  
         }else{
-        nReward = GetProofOfStakeReward(nCoinAge, nFees, /*fInflationAdjustment*/ 0); 
+        nReward = GetProofOfStakeReward(nCoinAge, nFees); 
         }
 
         // Refuse to create mint that has reward less than fees
-        //if (nReward <= 0)   //UpdateMe 
-        if(nReward != nFees) {
+        if (nReward <= 0) {
           return false;
         }
         
-        if(CTransaction::CURRENT_VERSION < 2){  // UpdateMe >= 
+        if(CTransaction::CURRENT_VERSION >= 2){  
         // Split fund output 92-8%
         nEndCredit += nReward * 0.92;
         nDevCredit += nReward - nEndCredit;
